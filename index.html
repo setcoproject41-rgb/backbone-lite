@@ -3,55 +3,33 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Backbone Lite - Survey</title>
+  <title>Dashboard Backbone Lite</title>
   <style>
     body {
       font-family: system-ui, Arial;
-      max-width: 900px;
-      margin: 16px auto;
-      padding: 12px;
       background: #f7fafc;
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 12px;
     }
     .card {
       background: #fff;
-      border: 1px solid #eee;
-      padding: 12px;
       border-radius: 8px;
+      border: 1px solid #eee;
+      padding: 16px;
       margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    label {
-      display: block;
-      margin: 8px 0 4px;
-      font-weight: 600;
-    }
-    input, textarea, button {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    button:hover {
-      background: #1e40af;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 12px;
-      font-size: 13px;
+      margin-top: 10px;
     }
     th, td {
       border: 1px solid #eee;
       padding: 6px;
       text-align: left;
+      font-size: 13px;
     }
     img.thumb {
       height: 60px;
@@ -60,42 +38,19 @@
   </style>
 </head>
 <body>
-  <h1>📋 Backbone Lite — Laporan Survey</h1>
+  <h1>📊 Backbone Lite — Dashboard Laporan</h1>
 
-  <!-- DASHBOARD SECTION -->
   <div class="card" style="background:#ebf8ff">
-    <h3>📈 Dashboard Kemajuan</h3>
+    <h3>📈 Ringkasan Proyek</h3>
     <p id="totalProgress">Total Progress: -</p>
     <p id="percentProgress">Pencapaian: -</p>
     <canvas id="chart" height="120"></canvas>
   </div>
 
-  <!-- FORM LAPORAN -->
   <div class="card">
-    <form id="reportForm">
-      <label>Progress / Catatan</label>
-      <input id="progress" placeholder="Contoh: 120 m - Galian hari ini" required />
-      <label>Foto (opsional)</label>
-      <input id="photo" type="file" accept="image/*" />
-      <p style="font-size:13px;color:#666">
-        Lokasi akan diambil otomatis (izin lokasi browser diperlukan).
-      </p>
-      <button type="submit">Kirim Laporan</button>
-    </form>
-    <div id="status" style="margin-top:8px;color:#333"></div>
-  </div>
-
-  <!-- LOKASI -->
-  <div class="card">
-    <h3>📍 Lokasi Saat Ini</h3>
-    <div id="loc">Mencari lokasi...</div>
-  </div>
-
-  <!-- TABEL LAPORAN -->
-  <div class="card">
-    <h3>📊 Daftar Laporan</h3>
+    <h3>🗂️ Daftar Laporan</h3>
     <div id="loadStatus"></div>
-    <table id="tbl">
+    <table>
       <thead>
         <tr>
           <th>Tanggal</th>
@@ -112,82 +67,62 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
     import Chart from 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js'
 
-    // ====== KONFIGURASI SUPABASE ======
     const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg'
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
-    // ===================================
 
-    const locDiv = document.getElementById('loc')
     const tbody = document.getElementById('tbody')
     const loadStatus = document.getElementById('loadStatus')
-    const status = document.getElementById('status')
-    let currentPos = { latitude: null, longitude: null }
     let chart
 
-    // === Ambil Lokasi Otomatis ===
-    function getLocation() {
-      if (!navigator.geolocation) {
-        locDiv.textContent = 'Geolocation tidak tersedia.'
-        return
-      }
-      navigator.geolocation.getCurrentPosition(
-        (p) => {
-          currentPos.latitude = p.coords.latitude
-          currentPos.longitude = p.coords.longitude
-          locDiv.textContent = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`
-        },
-        (err) => { locDiv.textContent = 'Gagal ambil lokasi: ' + err.message }
-      )
-    }
-    getLocation()
-
-    // === Load Data ke Tabel ===
+    // === LOAD DATA DARI SUPABASE ===
     async function loadReports() {
-      loadStatus.textContent = 'Memuat...'
+      loadStatus.textContent = 'Memuat data...'
       const { data, error } = await supabase
         .from('reports')
         .select('*')
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error ambil data:', error.message)
-        loadStatus.textContent = 'Error: ' + error.message
+        console.error('Error ambil data:', error)
+        loadStatus.textContent = 'Gagal memuat data: ' + error.message
         return
       }
 
       if (!data || data.length === 0) {
-        loadStatus.textContent = 'Belum ada laporan'
+        loadStatus.textContent = 'Belum ada laporan.'
         tbody.innerHTML = ''
         return
       }
 
+      console.log('Data dari Supabase:', data)
       loadStatus.textContent = `Menampilkan ${data.length} laporan`
       tbody.innerHTML = ''
+
       data.forEach(r => {
         const tr = document.createElement('tr')
         const d = new Date(r.created_at).toLocaleString()
-        const locText = (r.latitude && r.longitude)
+        const loc = (r.latitude && r.longitude)
           ? `${r.latitude.toFixed(6)}, ${r.longitude.toFixed(6)}`
           : '-'
         tr.innerHTML = `
           <td>${d}</td>
           <td>${r.progress || '-'}</td>
-          <td>${locText}</td>
+          <td>${loc}</td>
           <td>${r.photo_url ? `<a href="${r.photo_url}" target="_blank"><img src="${r.photo_url}" class="thumb" /></a>` : '-'}</td>
         `
         tbody.appendChild(tr)
       })
     }
 
-    // === Dashboard Chart ===
+    // === DASHBOARD ===
     async function loadDashboard() {
       const { data, error } = await supabase
         .from('reports')
         .select('progress, telegram_user')
 
       if (error) {
-        console.error('Dashboard error:', error.message)
+        console.error('Error dashboard:', error)
         return
       }
 
@@ -197,7 +132,6 @@
         return
       }
 
-      // Parse progress text (contoh: "120 m - Galian")
       const parsed = data.map(r => {
         const match = r.progress?.match(/([\d.,]+)\s*m/i)
         return {
@@ -206,91 +140,41 @@
         }
       })
 
-      // Gabungkan per user
       const teamProgress = {}
       parsed.forEach(p => {
         if (!teamProgress[p.user]) teamProgress[p.user] = 0
         teamProgress[p.user] += p.value
       })
 
-      const total = Object.values(teamProgress).reduce((a,b)=>a+b,0)
+      const total = Object.values(teamProgress).reduce((a, b) => a + b, 0)
       const target = 27000
       const percent = ((total / target) * 100).toFixed(1)
 
       document.getElementById('totalProgress').innerText = `Total Progress: ${total.toLocaleString()} m`
       document.getElementById('percentProgress').innerText = `Pencapaian: ${percent}% dari target 27.000 m`
 
-      // Render chart
       const ctx = document.getElementById('chart')
       const labels = Object.keys(teamProgress)
       const values = Object.values(teamProgress)
-
       if (chart) chart.destroy()
       chart = new Chart(ctx, {
         type: 'bar',
         data: {
           labels,
           datasets: [{
-            label: 'Kemajuan per tim (m)',
+            label: 'Kemajuan per teknisi (m)',
             data: values,
             backgroundColor: '#2563eb'
           }]
         },
         options: {
           plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: '#333' } },
-            y: { ticks: { color: '#333' } }
-          }
+          scales: { x: { ticks: { color: '#333' } }, y: { ticks: { color: '#333' } } }
         }
       })
     }
 
-    // === Upload Foto ke Storage ===
-    async function uploadPhoto(file) {
-      if (!file) return null
-      const fname = `${Date.now()}-${file.name.replace(/\s+/g,'_')}`
-      const bucket = 'survey_photos'
-      const { data, error } = await supabase.storage.from(bucket).upload(fname, file)
-      if (error) {
-        console.error('Upload error:', error.message)
-        return null
-      }
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fname)
-      return urlData.publicUrl
-    }
-
-    // === Kirim Laporan Baru ===
-    document.getElementById('reportForm').addEventListener('submit', async (ev) => {
-      ev.preventDefault()
-      const progress = document.getElementById('progress').value.trim()
-      const file = document.getElementById('photo').files[0]
-      status.textContent = 'Mengirim...'
-
-      let photoUrl = null
-      if (file) photoUrl = await uploadPhoto(file)
-
-      const payload = {
-        progress,
-        latitude: currentPos.latitude,
-        longitude: currentPos.longitude,
-        photo_url: photoUrl
-      }
-
-      const { error } = await supabase.from('reports').insert([payload])
-      if (error) {
-        status.textContent = '❌ Gagal: ' + error.message
-        console.error(error)
-      } else {
-        status.textContent = '✅ Laporan tersimpan!'
-        document.getElementById('reportForm').reset()
-        getLocation()
-        await loadReports()
-        await loadDashboard()
-      }
-    })
-
-    // === Load awal & auto refresh ===
+    // === MUAT SEMUA DATA ===
     loadReports()
     loadDashboard()
     setInterval(() => { loadReports(); loadDashboard() }, 30000)
