@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="id">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -7,33 +7,40 @@
   <style>
     body {
       font-family: system-ui, Arial;
-      background: #f7fafc;
+      background: #f8fafc;
       max-width: 900px;
       margin: 20px auto;
-      padding: 12px;
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 16px;
     }
     .card {
       background: #fff;
-      border-radius: 8px;
-      border: 1px solid #eee;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
       padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 8px;
+      font-size: 14px;
     }
     th, td {
-      border: 1px solid #eee;
+      border: 1px solid #e5e7eb;
       padding: 6px;
       text-align: left;
-      font-size: 13px;
+    }
+    th {
+      background: #f1f5f9;
     }
     img.thumb {
       height: 60px;
-      border-radius: 4px;
+      border-radius: 6px;
     }
   </style>
 </head>
@@ -63,19 +70,19 @@
     </table>
   </div>
 
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
-    import Chart from 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js'
+  <!-- ✅ Supabase + Chart.js (browser global) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+  <script>
     const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg'
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
 
     const tbody = document.getElementById('tbody')
     const loadStatus = document.getElementById('loadStatus')
     let chart
 
-    // === LOAD DATA DARI SUPABASE ===
     async function loadReports() {
       loadStatus.textContent = 'Memuat data...'
       const { data, error } = await supabase
@@ -115,7 +122,6 @@
       })
     }
 
-    // === DASHBOARD ===
     async function loadDashboard() {
       const { data, error } = await supabase
         .from('reports')
@@ -162,19 +168,18 @@
         data: {
           labels,
           datasets: [{
-            label: 'Kemajuan per teknisi (m)',
+            label: 'Kemajuan per tim (m)',
             data: values,
-            backgroundColor: '#2563eb'
+            backgroundColor: '#3b82f6'
           }]
         },
         options: {
           plugins: { legend: { display: false } },
-          scales: { x: { ticks: { color: '#333' } }, y: { ticks: { color: '#333' } } }
+          scales: { x: { ticks: { color: '#111' } }, y: { ticks: { color: '#111' } } }
         }
       })
     }
 
-    // === MUAT SEMUA DATA ===
     loadReports()
     loadDashboard()
     setInterval(() => { loadReports(); loadDashboard() }, 30000)
