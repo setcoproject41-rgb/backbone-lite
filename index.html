@@ -1,1 +1,144 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Backbone Lite - Survey</title>
+  <style>
+    body{font-family:system-ui,Arial;max-width:900px;margin:16px auto;padding:12px;background:#f7fafc}
+    .card{background:#fff;border:1px solid #eee;padding:12px;border-radius:8px;margin-bottom:12px}
+    label{display:block;margin:8px 0 4px;font-weight:600}
+    input,textarea,button{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px}
+    button{background:#2563eb;color:white;border:none;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border:1px solid #eee;padding:6px;text-align:left;font-size:13px}
+    img.thumb{height:60px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <h1>📋 Backbone Lite — Laporan Survey</h1>
+
+  <div class="card">
+    <form id="reportForm">
+      <label>Progress / Catatan</label>
+      <input id="progress" placeholder="Contoh: 120 m - Galian hari ini" required />
+      <label>Foto (opsional)</label>
+      <input id="photo" type="file" accept="image/*" />
+      <p style="font-size:13px;color:#666">Lokasi akan diambil otomatis (izin lokasi browser diperlukan).</p>
+      <button type="submit">Kirim Laporan</button>
+    </form>
+    <div id="status" style="margin-top:8px;color:#333"></div>
+  </div>
+
+  <div class="card">
+    <h3>📍 Lokasi Saat Ini</h3>
+    <div id="loc">Mencari lokasi...</div>
+  </div>
+
+  <div class="card">
+    <h3>📊 Daftar Laporan</h3>
+    <div id="loadStatus"></div>
+    <table id="tbl">
+      <thead><tr><th>Tanggal</th><th>Progress</th><th>Lokasi</th><th>Foto</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+    // ======= ISI DENGAN CREDENTIAL SUPABASE ANDA =======
+    const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg'
+    // ==================================================
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON)
+
+    const locDiv = document.getElementById('loc')
+    const tbody = document.getElementById('tbody')
+    const loadStatus = document.getElementById('loadStatus')
+    const status = document.getElementById('status')
+    let currentPos = { latitude: null, longitude: null }
+
+    // Ambil lokasi otomatis
+    function getLocation() {
+      if (!navigator.geolocation) {
+        locDiv.textContent = 'Geolocation tidak tersedia.'
+        return
+      }
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          currentPos.latitude = p.coords.latitude
+          currentPos.longitude = p.coords.longitude
+          locDiv.textContent = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`
+        },
+        (err) => { locDiv.textContent = 'Gagal ambil lokasi: ' + err.message }
+      )
+    }
+    getLocation()
+
+    // Load data dari Supabase
+    async function loadReports() {
+      loadStatus.textContent = 'Memuat...'
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (error) {
+        loadStatus.textContent = 'Error: ' + error.message
+        return
+      }
+      loadStatus.textContent = `Menampilkan ${data.length} laporan`
+      tbody.innerHTML = ''
+      data.forEach(r => {
+        const tr = document.createElement('tr')
+        const d = new Date(r.created_at).toLocaleString()
+        tr.innerHTML = `<td>${d}</td>
+                        <td>${r.progress || '-'}</td>
+                        <td>${r.latitude ? r.latitude.toFixed(6) : '-'}, ${r.longitude ? r.longitude.toFixed(6) : '-'}</td>
+                        <td>${r.photo_url ? `<a href="${r.photo_url}" target="_blank"><img src="${r.photo_url}" class="thumb" /></a>` : '-'}</td>`
+        tbody.appendChild(tr)
+      })
+    }
+    loadReports()
+
+    // Upload file ke Supabase Storage dan return public url
+    async function uploadPhoto(file) {
+      if (!file) return null
+      const fname = `${Date.now()}-${file.name.replace(/\s+/g,'_')}`
+      const bucket = 'survey_photos'
+      const { data, error } = await supabase.storage.from(bucket).upload(fname, file, { upsert: false })
+      if (error) {
+        console.error('upload error', error)
+        return null
+      }
+      const { publicURL, error: e2 } = supabase.storage.from(bucket).getPublicUrl(data.path)
+      if (e2) { console.error(e2); return null }
+      return publicURL
+    }
+
+    document.getElementById('reportForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault()
+      const progress = document.getElementById('progress').value.trim()
+      const fileInput = document.getElementById('photo')
+      const file = fileInput.files[0]
+      status.textContent = 'Mengirim...'
+      let photoUrl = null
+      try { if (file) photoUrl = await uploadPhoto(file) } catch(e){ console.error(e) }
+      const payload = {
+        progress,
+        latitude: currentPos.latitude,
+        longitude: currentPos.longitude,
+        photo_url: photoUrl
+      }
+      const { error } = await supabase.from('reports').insert([payload])
+      if (error) status.textContent = 'Gagal: ' + error.message
+      else { status.textContent = 'Tersimpan ✅'; document.getElementById('reportForm').reset(); getLocation(); loadReports() }
+    })
+
+    // refresh list tiap 30s (opsional)
+    setInterval(()=>{ loadReports() }, 30000)
+  </script>
+</body>
+</html>
 
