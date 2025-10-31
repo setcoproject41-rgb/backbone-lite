@@ -1,1 +1,10 @@
+{
+  "name": "backbone-lite",
+  "version": "1.0.0",
+  "main": "api/webhook.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "node-fetch": "^2.6.7"
+  }
+}
 
