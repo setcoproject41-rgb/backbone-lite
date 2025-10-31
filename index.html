@@ -5,18 +5,64 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Backbone Lite - Survey</title>
   <style>
-    body{font-family:system-ui,Arial;max-width:900px;margin:16px auto;padding:12px;background:#f7fafc}
-    .card{background:#fff;border:1px solid #eee;padding:12px;border-radius:8px;margin-bottom:12px}
-    label{display:block;margin:8px 0 4px;font-weight:600}
-    input,textarea,button{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px}
-    button{background:#2563eb;color:white;border:none;cursor:pointer}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th,td{border:1px solid #eee;padding:6px;text-align:left;font-size:13px}
-    img.thumb{height:60px;border-radius:4px}
+    body {
+      font-family: system-ui, Arial;
+      max-width: 900px;
+      margin: 16px auto;
+      padding: 12px;
+      background: #f7fafc;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #eee;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      margin: 8px 0 4px;
+      font-weight: 600;
+    }
+    input, textarea, button {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid #eee;
+      padding: 6px;
+      text-align: left;
+      font-size: 13px;
+    }
+    img.thumb {
+      height: 60px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
   <h1>📋 Backbone Lite — Laporan Survey</h1>
+
+  <!-- DASHBOARD SECTION -->
+  <div class="card" style="background:#ebf8ff">
+    <h3>📈 Dashboard Kemajuan</h3>
+    <p id="totalProgress">Total Progress: -</p>
+    <p id="percentProgress">Persentase: -</p>
+    <canvas id="chart" height="120"></canvas>
+  </div>
 
   <div class="card">
     <form id="reportForm">
@@ -24,7 +70,9 @@
       <input id="progress" placeholder="Contoh: 120 m - Galian hari ini" required />
       <label>Foto (opsional)</label>
       <input id="photo" type="file" accept="image/*" />
-      <p style="font-size:13px;color:#666">Lokasi akan diambil otomatis (izin lokasi browser diperlukan).</p>
+      <p style="font-size:13px;color:#666">
+        Lokasi akan diambil otomatis (izin lokasi browser diperlukan).
+      </p>
       <button type="submit">Kirim Laporan</button>
     </form>
     <div id="status" style="margin-top:8px;color:#333"></div>
@@ -39,13 +87,21 @@
     <h3>📊 Daftar Laporan</h3>
     <div id="loadStatus"></div>
     <table id="tbl">
-      <thead><tr><th>Tanggal</th><th>Progress</th><th>Lokasi</th><th>Foto</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Progress</th>
+          <th>Lokasi</th>
+          <th>Foto</th>
+        </tr>
+      </thead>
       <tbody id="tbody"></tbody>
     </table>
   </div>
 
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+    import Chart from 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js'
 
     // ======= ISI DENGAN CREDENTIAL SUPABASE ANDA =======
     const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'
@@ -100,7 +156,73 @@
         tbody.appendChild(tr)
       })
     }
+
+    // ===== DASHBOARD SECTION =====
+    let chart
+
+    async function loadDashboard() {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('progress, telegram_user')
+
+      if (error || !data) {
+        console.error('Dashboard error:', error)
+        return
+      }
+
+      // Ambil angka meter dari text progress
+      const progressParsed = data.map(r => {
+        const match = r.progress?.match(/([\d.,]+)\s*m/i)
+        return { 
+          user: r.telegram_user || 'Tanpa Nama',
+          value: match ? parseFloat(match[1].replace(',', '.')) : 0
+        }
+      })
+
+      // Gabungkan per user
+      const teamProgress = {}
+      progressParsed.forEach(p => {
+        if (!teamProgress[p.user]) teamProgress[p.user] = 0
+        teamProgress[p.user] += p.value
+      })
+
+      // Total dan target
+      const total = Object.values(teamProgress).reduce((a,b)=>a+b,0)
+      const target = 27000 // misal target total proyek
+      const percent = ((total / target) * 100).toFixed(1)
+
+      // Update teks ringkasan
+      document.getElementById('totalProgress').innerText = `Total Progress: ${total.toLocaleString()} m`
+      document.getElementById('percentProgress').innerText = `Pencapaian: ${percent}% dari target 27.000 m`
+
+      // Siapkan data chart
+      const labels = Object.keys(teamProgress)
+      const values = Object.values(teamProgress)
+
+      const ctx = document.getElementById('chart')
+      if (chart) chart.destroy() // reset agar tidak dobel
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Kemajuan per teknisi (m)',
+            data: values,
+            backgroundColor: '#2563eb'
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#333' } },
+            y: { ticks: { color: '#333' } }
+          }
+        }
+      })
+    }
+
     loadReports()
+    loadDashboard()
 
     // Upload file ke Supabase Storage dan return public url
     async function uploadPhoto(file) {
@@ -133,12 +255,17 @@
       }
       const { error } = await supabase.from('reports').insert([payload])
       if (error) status.textContent = 'Gagal: ' + error.message
-      else { status.textContent = 'Tersimpan ✅'; document.getElementById('reportForm').reset(); getLocation(); loadReports() }
+      else {
+        status.textContent = 'Tersimpan ✅'
+        document.getElementById('reportForm').reset()
+        getLocation()
+        loadReports()
+        loadDashboard()
+      }
     })
 
     // refresh list tiap 30s (opsional)
-    setInterval(()=>{ loadReports() }, 30000)
+    setInterval(() => { loadReports(); loadDashboard() }, 30000)
   </script>
 </body>
 </html>
-
