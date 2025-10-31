@@ -89,7 +89,7 @@ if (message.photo) {
         lon: message.location.longitude,
       }
       current.step = 'text'
-      await sendMessage(chatId, '📍 Lokasi diterima. Sekarang kirim keterangan (teks).')
+      await sendMessage(chatId, '📍 Lokasi diterima. Sekarang kirim keterangan (contoh: PENANAMAN TIANG 1).')
       return res.status(200).send('location ok')
     }
 
