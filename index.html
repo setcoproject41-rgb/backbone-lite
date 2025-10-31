@@ -8,7 +8,7 @@
     body {
       font-family: system-ui, Arial;
       background: #f8fafc;
-      max-width: 900px;
+      max-width: 1100px;
       margin: 20px auto;
       padding: 16px;
     }
@@ -34,6 +34,7 @@
       border: 1px solid #e5e7eb;
       padding: 6px;
       text-align: left;
+      vertical-align: top;
     }
     th {
       background: #f1f5f9;
@@ -42,11 +43,15 @@
       height: 60px;
       border-radius: 6px;
     }
+    .nowrap {
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
   <h1>📊 RMJ Backbone — Dashboard Laporan</h1>
 
+  <!-- Ringkasan -->
   <div class="card" style="background:#ebf8ff">
     <h3>📈 Ringkasan Proyek</h3>
     <p id="totalProgress">Total Progress: -</p>
@@ -54,6 +59,7 @@
     <canvas id="chart" height="120"></canvas>
   </div>
 
+  <!-- Daftar Laporan -->
   <div class="card">
     <h3>🗂️ Daftar Laporan</h3>
     <div id="loadStatus"></div>
@@ -61,6 +67,10 @@
       <thead>
         <tr>
           <th>Tanggal</th>
+          <th>Nama Pekerjaan</th>
+          <th>Volume (M)</th>
+          <th>Material</th>
+          <th>Keterangan</th>
           <th>Progress</th>
           <th>Lokasi</th>
           <th>Foto</th>
@@ -70,11 +80,12 @@
     </table>
   </div>
 
-  <!-- ✅ Supabase + Chart.js (browser global) -->
+  <!-- ✅ Supabase + Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <script>
+    // Konfigurasi Supabase
     const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg'
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
@@ -83,6 +94,7 @@
     const loadStatus = document.getElementById('loadStatus')
     let chart
 
+    // === Load Data Tabel ===
     async function loadReports() {
       loadStatus.textContent = 'Memuat data...'
       const { data, error } = await supabase
@@ -110,10 +122,15 @@
         const tr = document.createElement('tr')
         const d = new Date(r.created_at).toLocaleString()
         const loc = (r.latitude && r.longitude)
-          ? `${r.latitude.toFixed(6)}, ${r.longitude.toFixed(6)}`
+          ? `<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">📍 ${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}</a>`
           : '-'
+
         tr.innerHTML = `
-          <td>${d}</td>
+          <td class="nowrap">${d}</td>
+          <td>${r.nama_pekerjaan || '-'}</td>
+          <td>${r.volume_pekerjaan || '-'}</td>
+          <td>${r.material || '-'}</td>
+          <td>${r.keterangan || '-'}</td>
           <td>${r.progress || '-'}</td>
           <td>${loc}</td>
           <td>${r.photo_url ? `<a href="${r.photo_url}" target="_blank"><img src="${r.photo_url}" class="thumb" /></a>` : '-'}</td>
@@ -122,10 +139,11 @@
       })
     }
 
+    // === Load Dashboard ===
     async function loadDashboard() {
       const { data, error } = await supabase
         .from('reports')
-        .select('progress, telegram_user')
+        .select('progress, telegram_user, volume_pekerjaan')
 
       if (error) {
         console.error('Error dashboard:', error)
@@ -138,14 +156,16 @@
         return
       }
 
+      // Ambil nilai volume pekerjaan numerik
       const parsed = data.map(r => {
-        const match = r.progress?.match(/([\d.,]+)\s*m/i)
+        const val = parseFloat(r.volume_pekerjaan) || 0
         return {
           user: r.telegram_user || 'Tanpa Nama',
-          value: match ? parseFloat(match[1].replace(',', '.')) : 0
+          value: val
         }
       })
 
+      // Total per user
       const teamProgress = {}
       parsed.forEach(p => {
         if (!teamProgress[p.user]) teamProgress[p.user] = 0
@@ -159,6 +179,7 @@
       document.getElementById('totalProgress').innerText = `Total Progress: ${total.toLocaleString()} m`
       document.getElementById('percentProgress').innerText = `Pencapaian: ${percent}% dari target 27.000 m`
 
+      // Render chart
       const ctx = document.getElementById('chart')
       const labels = Object.keys(teamProgress)
       const values = Object.values(teamProgress)
@@ -168,14 +189,17 @@
         data: {
           labels,
           datasets: [{
-            label: 'Kemajuan per tim (m)',
+            label: 'Volume per user (m)',
             data: values,
             backgroundColor: '#3b82f6'
           }]
         },
         options: {
           plugins: { legend: { display: false } },
-          scales: { x: { ticks: { color: '#111' } }, y: { ticks: { color: '#111' } } }
+          scales: { 
+            x: { ticks: { color: '#111' } }, 
+            y: { ticks: { color: '#111' }, beginAtZero: true } 
+          }
         }
       })
     }
