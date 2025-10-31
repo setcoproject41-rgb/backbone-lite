@@ -30,37 +30,52 @@ export default async function handler(req, res) {
     const current = userSteps[chatId]
 
     // === STEP 1: FOTO ===
-    if (message.photo) {
-      const photo = message.photo[message.photo.length - 1]
-      const fileId = photo.file_id
+if (message.photo) {
+  const photo = message.photo[message.photo.length - 1]
+  const fileId = photo.file_id
 
-      // ambil file path
-      const getFile = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`)
-      const jf = await getFile.json()
-      if (jf.ok) {
-        const path = jf.result.file_path
-        const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${path}`
+  // ambil file path dari Telegram
+  const getFile = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`)
+  const jf = await getFile.json()
+  if (!jf.ok) throw new Error('Gagal ambil file path Telegram')
 
-        // download buffer
-        const fileRes = await fetch(fileUrl)
-        const arrayBuffer = await fileRes.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
-        const fname = `${Date.now()}-${fileId}.jpg`
+  const path = jf.result.file_path
+  const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${path}`
 
-        // upload ke Supabase Storage
-        const { data, error: upErr } = await supabase.storage
-          .from(BUCKET)
-          .upload(fname, buffer, { contentType: 'image/jpeg' })
-        if (upErr) console.error('upload err', upErr)
+  // download buffer file dari Telegram
+  const fileRes = await fetch(fileUrl)
+  const arrayBuffer = await fileRes.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+  const fileName = `${Date.now()}_${fileId}.jpg`
 
-        const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(fname)
-        current.photoUrl = pub.publicUrl
-        current.step = 'location'
+  // upload ke Supabase
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(fileName, buffer, { contentType: 'image/jpeg', upsert: false })
 
-        await sendMessage(chatId, '✅ Foto diterima. Sekarang kirim lokasi kamu (share location).')
-        return res.status(200).send('photo ok')
-      }
-    }
+  if (uploadError) {
+    console.error('❌ Upload error:', uploadError)
+    await sendMessage(chatId, '⚠️ Gagal upload foto ke server.')
+    return res.status(200).send('upload error')
+  }
+
+  // ambil public URL
+  const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(fileName)
+  const publicUrl = pub?.publicUrl
+
+  if (!publicUrl) {
+    console.error('❌ Public URL not found for file:', fileName)
+    await sendMessage(chatId, '⚠️ Gagal buat link foto.')
+    return res.status(200).send('no url')
+  }
+
+  current.photoUrl = publicUrl
+  current.step = 'location'
+
+  await sendMessage(chatId, '✅ Foto diterima. Sekarang kirim lokasi kamu (share location).')
+  return res.status(200).send('photo ok')
+}
+
 
     // === STEP 2: LOKASI ===
     if (message.location) {
