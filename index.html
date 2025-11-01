@@ -1,158 +1,244 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Laporan</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard RMJ Backbone</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f9fafb;
+      font-family: system-ui, Arial;
+      background: #f8fafc;
+      max-width: 1100px;
+      margin: 20px auto;
+      padding: 16px;
     }
-    h2 {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    h1 {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
     }
     table {
-      border-collapse: collapse;
       width: 100%;
-      margin-top: 16px;
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 14px;
     }
     th, td {
-      border: 1px solid #eee;
-      padding: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 6px;
       text-align: left;
+      vertical-align: top;
     }
     th {
-      background: #f3f4f6;
+      background: #f1f5f9;
     }
-    tr:nth-child(even) {
-      background: #fafafa;
-    }
-    img {
-      width: 80px;
-      height: auto;
+    img.thumb {
+      height: 60px;
       border-radius: 6px;
     }
     button {
-      background-color: #2563eb;
-      color: white;
+      background: #3b82f6;
+      color: #fff;
       border: none;
-      padding: 10px 16px;
       border-radius: 6px;
+      padding: 8px 14px;
       cursor: pointer;
       font-size: 14px;
-      margin-bottom: 10px;
+      margin-top: 6px;
     }
     button:hover {
-      background-color: #1e40af;
+      background: #2563eb;
     }
   </style>
 </head>
 <body>
-  <h2>📁 Daftar Laporan</h2>
-  <p id="countInfo">Memuat laporan...</p>
-  <button id="downloadCSV">⬇️ Download Report (CSV)</button>
+  <h1>📊 RMJ Backbone — Dashboard Laporan</h1>
 
-  <table id="reportTable">
-    <thead>
-      <tr>
-        <th>Tanggal</th>
-        <th>Nama Pekerjaan</th>
-        <th>Volume (m)</th>
-        <th>Material</th>
-        <th>Keterangan</th>
-        <th>Lokasi</th>
-        <th>Foto Sebelum</th>
-        <th>Foto Sesudah</th>
-      </tr>
-    </thead>
-    <tbody id="reportBody">
-      <tr><td colspan="8">Loading data...</td></tr>
-    </tbody>
-  </table>
+  <div class="card" style="background:#ebf8ff">
+    <h3>📈 Ringkasan Proyek</h3>
+    <p id="totalProgress">Total Progress: -</p>
+    <p id="percentProgress">Pencapaian: -</p>
+    <canvas id="chart" height="120"></canvas>
+  </div>
 
-  <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+  <div class="card">
+    <h3>🗂️ Daftar Laporan</h3>
+    <div id="loadStatus"></div>
+    <button onclick="downloadCSV()">⬇️ Download Report (CSV)</button>
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Nama Pekerjaan</th>
+          <th>Volume (m)</th>
+          <th>Material</th>
+          <th>Keterangan</th>
+          <th>Lokasi</th>
+          <th>Foto Sebelum</th>
+          <th>Foto Sesudah</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
 
-    // Ganti dengan kredensial proyek kamu
-    const supabaseUrl = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
-    const supabase = createClient(supabaseUrl, supabaseKey);
+  <!-- ✅ Supabase + Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+  <script>
+    // === KONFIGURASI SUPABASE ===
+    const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    const tbody = document.getElementById('tbody');
+    const loadStatus = document.getElementById('loadStatus');
+    let chart;
+
+    // === LOAD REPORTS ===
     async function loadReports() {
+      loadStatus.textContent = 'Memuat data...';
       const { data, error } = await supabase
-        .from("reports")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("❌ Gagal memuat data:", error);
-        document.getElementById("reportBody").innerHTML =
-          "<tr><td colspan='8'>Gagal memuat data laporan</td></tr>";
+        console.error('Error ambil data:', error);
+        loadStatus.textContent = 'Gagal memuat data: ' + error.message;
         return;
       }
 
-      document.getElementById("countInfo").innerText = `Menampilkan ${data.length} laporan`;
+      if (!data || data.length === 0) {
+        loadStatus.textContent = 'Belum ada laporan.';
+        tbody.innerHTML = '';
+        return;
+      }
 
-      const tbody = data.map(r => `
-        <tr>
-          <td>${new Date(r.created_at).toLocaleString()}</td>
-          <td>${r.nama_pekerjaan || "-"}</td>
-          <td>${r.volume_pekerjaan || "-"}</td>
-          <td>${r.material || "-"}</td>
-          <td>${r.keterangan || "-"}</td>
-          <td>${r.latitude && r.longitude ? `${r.latitude}, ${r.longitude}` : "-"}</td>
-          <td>
-            ${
-              r.photo_before_url
-                ? `<a href="${r.photo_before_url}" target="_blank"><img src="${r.photo_before_url}" alt="Foto Sebelum" /></a>`
-                : "-"
-            }
-          </td>
-          <td>
-            ${
-              r.photo_after_url
-                ? `<a href="${r.photo_after_url}" target="_blank"><img src="${r.photo_after_url}" alt="Foto Sesudah" /></a>`
-                : "-"
-            }
-          </td>
-        </tr>
-      `).join("");
+      loadStatus.textContent = `Menampilkan ${data.length} laporan`;
+      tbody.innerHTML = '';
 
-      document.getElementById("reportBody").innerHTML = tbody;
+      data.forEach(r => {
+        const tr = document.createElement('tr');
+        const d = new Date(r.created_at).toLocaleString();
+        const loc = (r.latitude && r.longitude)
+          ? `${r.latitude.toFixed(6)}, ${r.longitude.toFixed(6)}`
+          : '-';
+
+        tr.innerHTML = `
+          <td>${d}</td>
+          <td>${r.nama_pekerjaan || '-'}</td>
+          <td>${r.volume_pekerjaan || '-'}</td>
+          <td>${r.material || '-'}</td>
+          <td>${r.keterangan || '-'}</td>
+          <td>${loc}</td>
+          <td>${r.photo_before_url ? `<a href="${r.photo_before_url}" target="_blank"><img src="${r.photo_before_url}" class="thumb" /></a>` : '-'}</td>
+          <td>${r.photo_after_url ? `<a href="${r.photo_after_url}" target="_blank"><img src="${r.photo_after_url}" class="thumb" /></a>` : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
-    // Tombol download CSV
-    document.getElementById("downloadCSV").addEventListener("click", async () => {
-      const { data, error } = await supabase.from("reports").select("*");
-      if (error || !data) {
-        alert("❌ Gagal download report");
+    // === LOAD DASHBOARD (PROGRESS BAR) ===
+    async function loadDashboard() {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('volume_pekerjaan, telegram_user');
+
+      if (error) {
+        console.error('Error dashboard:', error);
         return;
       }
 
-      const headers = Object.keys(data[0] || {});
-      const csv = [
-        headers.join(","),
-        ...data.map(row => headers.map(h => JSON.stringify(row[h] ?? "")).join(","))
-      ].join("\n");
+      if (!data || data.length === 0) {
+        document.getElementById('totalProgress').innerText = 'Total Progress: 0 m';
+        document.getElementById('percentProgress').innerText = 'Pencapaian: 0%';
+        return;
+      }
 
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const teamProgress = {};
+      data.forEach(r => {
+        const vol = parseFloat(r.volume_pekerjaan) || 0;
+        const user = r.telegram_user || 'Tanpa Nama';
+        if (!teamProgress[user]) teamProgress[user] = 0;
+        teamProgress[user] += vol;
+      });
+
+      const total = Object.values(teamProgress).reduce((a, b) => a + b, 0);
+      const target = 27000;
+      const percent = ((total / target) * 100).toFixed(1);
+
+      document.getElementById('totalProgress').innerText = `Total Progress: ${total.toLocaleString()} m`;
+      document.getElementById('percentProgress').innerText = `Pencapaian: ${percent}% dari target 27.000 m`;
+
+      const ctx = document.getElementById('chart');
+      const labels = Object.keys(teamProgress);
+      const values = Object.values(teamProgress);
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Kemajuan per tim (m)',
+            data: values,
+            backgroundColor: '#3b82f6'
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: '#111' } }, y: { ticks: { color: '#111' } } }
+        }
+      });
+    }
+
+    // === DOWNLOAD CSV ===
+    async function downloadCSV() {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) return alert('Gagal mengambil data: ' + error.message);
+      if (!data.length) return alert('Tidak ada data untuk diunduh.');
+
+      const headers = [
+        'Tanggal', 'Nama Pekerjaan', 'Volume (m)', 'Material', 'Keterangan', 'Latitude', 'Longitude', 'Foto Sebelum', 'Foto Sesudah'
+      ];
+      const rows = data.map(r => [
+        new Date(r.created_at).toLocaleString(),
+        r.nama_pekerjaan || '',
+        r.volume_pekerjaan || '',
+        r.material || '',
+        r.keterangan || '',
+        r.latitude || '',
+        r.longitude || '',
+        r.photo_before_url || '',
+        r.photo_after_url || ''
+      ]);
+
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
       a.href = url;
-      a.download = "report.csv";
+      a.download = 'laporan_rmj_backbone.csv';
       a.click();
-      window.URL.revokeObjectURL(url);
-    });
+      URL.revokeObjectURL(url);
+    }
 
+    // === Jalankan saat halaman dimuat ===
     loadReports();
+    loadDashboard();
+    setInterval(() => { loadReports(); loadDashboard(); }, 30000);
   </script>
 </body>
 </html>
