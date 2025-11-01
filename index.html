@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dashboard Backbone Lite</title>
+  <title>Dashboard RMJ Backbone</title>
   <style>
     body {
       font-family: system-ui, Arial;
@@ -34,6 +34,7 @@
       border: 1px solid #e5e7eb;
       padding: 6px;
       text-align: left;
+      vertical-align: top;
     }
     th {
       background: #f1f5f9;
@@ -43,23 +44,23 @@
       border-radius: 6px;
     }
     button {
-      background: #2563eb;
-      color: white;
+      background: #3b82f6;
+      color: #fff;
       border: none;
-      padding: 8px 12px;
       border-radius: 6px;
+      padding: 8px 14px;
       cursor: pointer;
-      margin-top: 8px;
+      font-size: 14px;
+      margin-top: 6px;
     }
     button:hover {
-      background: #1d4ed8;
+      background: #2563eb;
     }
   </style>
 </head>
 <body>
   <h1>📊 RMJ Backbone — Dashboard Laporan</h1>
 
-  <!-- RINGKASAN -->
   <div class="card" style="background:#ebf8ff">
     <h3>📈 Ringkasan Proyek</h3>
     <p id="totalProgress">Total Progress: -</p>
@@ -67,10 +68,10 @@
     <canvas id="chart" height="120"></canvas>
   </div>
 
-  <!-- TABEL EVIDEN SEBELUM -->
   <div class="card">
-    <h3>📸 Eviden Sebelum</h3>
-    <div id="loadStatusBefore"></div>
+    <h3>🗂️ Daftar Laporan</h3>
+    <div id="loadStatus"></div>
+    <button onclick="downloadCSV()">⬇️ Download Report (CSV)</button>
     <table>
       <thead>
         <tr>
@@ -81,54 +82,30 @@
           <th>Keterangan</th>
           <th>Lokasi</th>
           <th>Foto Sebelum</th>
-        </tr>
-      </thead>
-      <tbody id="tbodyBefore"></tbody>
-    </table>
-  </div>
-
-  <!-- TABEL EVIDEN SESUDAH -->
-  <div class="card">
-    <h3>📷 Eviden Sesudah</h3>
-    <div id="loadStatusAfter"></div>
-    <button id="downloadBtn">⬇️ Download Report (CSV)</button>
-    <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Nama Pekerjaan</th>
-          <th>Volume (m)</th>
-          <th>Material</th>
-          <th>Keterangan</th>
-          <th>Lokasi</th>
           <th>Foto Sesudah</th>
         </tr>
       </thead>
-      <tbody id="tbodyAfter"></tbody>
+      <tbody id="tbody"></tbody>
     </table>
   </div>
 
-  <!-- ✅ Supabase + Chart.js -->
+  <!-- ✅ Supabase + Chart.js (browser global) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <script>
+    // Konfigurasi Supabase
     const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg'
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
 
-    const tbodyBefore = document.getElementById('tbodyBefore')
-    const tbodyAfter = document.getElementById('tbodyAfter')
-    const loadStatusBefore = document.getElementById('loadStatusBefore')
-    const loadStatusAfter = document.getElementById('loadStatusAfter')
-    const downloadBtn = document.getElementById('downloadBtn')
-    let chart, reportData = []
+    const tbody = document.getElementById('tbody')
+    const loadStatus = document.getElementById('loadStatus')
+    let chart
 
-    // === LOAD LAPORAN ===
+    // === LOAD REPORTS ===
     async function loadReports() {
-      loadStatusBefore.textContent = 'Memuat data eviden sebelum...'
-      loadStatusAfter.textContent = 'Memuat data eviden sesudah...'
-
+      loadStatus.textContent = 'Memuat data...'
       const { data, error } = await supabase
         .from('reports')
         .select('*')
@@ -136,29 +113,26 @@
 
       if (error) {
         console.error('Error ambil data:', error)
-        loadStatusBefore.textContent = 'Gagal memuat data'
-        loadStatusAfter.textContent = 'Gagal memuat data'
+        loadStatus.textContent = 'Gagal memuat data: ' + error.message
         return
       }
 
-      reportData = data
       if (!data || data.length === 0) {
-        loadStatusBefore.textContent = 'Belum ada eviden sebelum.'
-        loadStatusAfter.textContent = 'Belum ada eviden sesudah.'
-        tbodyBefore.innerHTML = ''
-        tbodyAfter.innerHTML = ''
+        loadStatus.textContent = 'Belum ada laporan.'
+        tbody.innerHTML = ''
         return
       }
 
-      // tampilkan eviden SEBELUM
-      tbodyBefore.innerHTML = ''
+      loadStatus.textContent = `Menampilkan ${data.length} laporan`
+      tbody.innerHTML = ''
+
       data.forEach(r => {
-        if (!r.photo_before_url) return
         const tr = document.createElement('tr')
         const d = new Date(r.created_at).toLocaleString()
         const loc = (r.latitude && r.longitude)
           ? `${r.latitude.toFixed(6)}, ${r.longitude.toFixed(6)}`
           : '-'
+
         tr.innerHTML = `
           <td>${d}</td>
           <td>${r.nama_pekerjaan || '-'}</td>
@@ -166,37 +140,14 @@
           <td>${r.material || '-'}</td>
           <td>${r.keterangan || '-'}</td>
           <td>${loc}</td>
-          <td>${r.photo_before_url ? `<a href="${r.photo_before_url}" target="_blank"><img src="${r.photo_before_url}" class="thumb" /></a>` : '-'}</td>
+          <td>${r.photo_before ? `<a href="${r.photo_before}" target="_blank"><img src="${r.photo_before}" class="thumb" /></a>` : '-'}</td>
+          <td>${r.photo_after ? `<a href="${r.photo_after}" target="_blank"><img src="${r.photo_after}" class="thumb" /></a>` : '-'}</td>
         `
-        tbodyBefore.appendChild(tr)
+        tbody.appendChild(tr)
       })
-
-      // tampilkan eviden SESUDAH
-      tbodyAfter.innerHTML = ''
-      data.forEach(r => {
-        if (!r.photo_after_url) return
-        const tr = document.createElement('tr')
-        const d = new Date(r.created_at).toLocaleString()
-        const loc = (r.latitude && r.longitude)
-          ? `${r.latitude.toFixed(6)}, ${r.longitude.toFixed(6)}`
-          : '-'
-        tr.innerHTML = `
-          <td>${d}</td>
-          <td>${r.nama_pekerjaan || '-'}</td>
-          <td>${r.volume_pekerjaan || '-'}</td>
-          <td>${r.material || '-'}</td>
-          <td>${r.keterangan || '-'}</td>
-          <td>${loc}</td>
-          <td>${r.photo_after_url ? `<a href="${r.photo_after_url}" target="_blank"><img src="${r.photo_after_url}" class="thumb" /></a>` : '-'}</td>
-        `
-        tbodyAfter.appendChild(tr)
-      })
-
-      loadStatusBefore.textContent = `Menampilkan eviden sebelum (${data.filter(r=>r.photo_before_url).length})`
-      loadStatusAfter.textContent = `Menampilkan eviden sesudah (${data.filter(r=>r.photo_after_url).length})`
     }
 
-    // === DASHBOARD ===
+    // === LOAD DASHBOARD ===
     async function loadDashboard() {
       const { data, error } = await supabase
         .from('reports')
@@ -213,15 +164,12 @@
         return
       }
 
-      const parsed = data.map(r => ({
-        user: r.telegram_user || 'Tanpa Nama',
-        value: parseFloat(r.volume_pekerjaan) || 0
-      }))
-
       const teamProgress = {}
-      parsed.forEach(p => {
-        if (!teamProgress[p.user]) teamProgress[p.user] = 0
-        teamProgress[p.user] += p.value
+      data.forEach(r => {
+        const vol = parseFloat(r.volume_pekerjaan) || 0
+        const user = r.telegram_user || 'Tanpa Nama'
+        if (!teamProgress[user]) teamProgress[user] = 0
+        teamProgress[user] += vol
       })
 
       const total = Object.values(teamProgress).reduce((a, b) => a + b, 0)
@@ -253,17 +201,19 @@
     }
 
     // === DOWNLOAD CSV ===
-    function downloadCSV() {
-      if (!reportData || reportData.length === 0) {
-        alert('Tidak ada data untuk diunduh.')
-        return
-      }
+    async function downloadCSV() {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-      const header = [
-        'Tanggal','Nama Pekerjaan','Volume (m)','Material','Keterangan',
-        'Latitude','Longitude','Foto Sebelum','Foto Sesudah'
+      if (error) return alert('Gagal mengambil data: ' + error.message)
+      if (!data.length) return alert('Tidak ada data untuk diunduh.')
+
+      const headers = [
+        'Tanggal', 'Nama Pekerjaan', 'Volume (m)', 'Material', 'Keterangan', 'Latitude', 'Longitude', 'Foto Sebelum', 'Foto Sesudah'
       ]
-      const rows = reportData.map(r => [
+      const rows = data.map(r => [
         new Date(r.created_at).toLocaleString(),
         r.nama_pekerjaan || '',
         r.volume_pekerjaan || '',
@@ -271,28 +221,23 @@
         r.keterangan || '',
         r.latitude || '',
         r.longitude || '',
-        r.photo_before_url || '',
-        r.photo_after_url || ''
+        r.photo_before || '',
+        r.photo_after || ''
       ])
 
-      const csv = [header, ...rows].map(e => e.map(v => `"${v}"`).join(',')).join('\n')
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv' })
       const url = URL.createObjectURL(blob)
-
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `laporan_rmj_${new Date().toISOString().slice(0,10)}.csv`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'laporan_rmj_backbone.csv'
+      a.click()
       URL.revokeObjectURL(url)
     }
 
-    downloadBtn.addEventListener('click', downloadCSV)
-
     loadReports()
     loadDashboard()
-    setInterval(() => { loadReports(); loadDashboard() }, 60000)
+    setInterval(() => { loadReports(); loadDashboard() }, 30000)
   </script>
 </body>
 </html>
