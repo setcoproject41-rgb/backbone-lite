@@ -1,201 +1,186 @@
-<!doctype html>
-<html lang="id">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dashboard RMJ Backbone</title>
-  <style>
-    body {
-      font-family: system-ui, Arial;
-      background: #f8fafc;
-      max-width: 1000px;
-      margin: 20px auto;
-      padding: 16px;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 16px;
-    }
-    .card {
-      background: #fff;
-      border-radius: 10px;
-      border: 1px solid #e2e8f0;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      font-size: 13px;
-    }
-    th, td {
-      border: 1px solid #e5e7eb;
-      padding: 6px;
-      text-align: left;
-    }
-    th {
-      background: #f1f5f9;
-    }
-    img.thumb {
-      height: 60px;
-      border-radius: 6px;
-    }
-    button {
-      background: #3b82f6;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover { background: #2563eb; }
-  </style>
-</head>
-<body>
-  <h1>📊 RMJ Backbone — Dashboard Laporan</h1>
+// api/webhook.js
+import fetch from 'node-fetch'
+import { createClient } from '@supabase/supabase-js'
 
-  <div class="card" style="background:#ebf8ff">
-    <h3>📈 Ringkasan Proyek</h3>
-    <p id="totalProgress">Total Progress: -</p>
-    <p id="percentProgress">Pencapaian: -</p>
-    <canvas id="chart" height="120"></canvas>
-  </div>
+const SUPABASE_URL = process.env.SUPABASE_URL
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const BUCKET = process.env.STORAGE_BUCKET || 'survey_photos'
 
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <h3>🗂️ Daftar Laporan</h3>
-      <button onclick="downloadCSV()">⬇️ Download CSV</button>
-    </div>
-    <div id="loadStatus"></div>
-    <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Nama Pekerjaan</th>
-          <th>Volume</th>
-          <th>Material</th>
-          <th>Keterangan</th>
-          <th>Progress</th>
-          <th>Lokasi</th>
-          <th>Eviden Sebelum</th>
-          <th>Eviden Sesudah</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-  <!-- ✅ Supabase + Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+// Simpan progress user sementara
+const userSteps = {}
 
-  <script>
-    const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'
-    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg'
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+export default async function handler(req, res) {
+  try {
+    const body = req.body
+    const message = body.message || body.edited_message
+    if (!message) return res.status(200).send('no message')
 
-    const tbody = document.getElementById('tbody')
-    const loadStatus = document.getElementById('loadStatus')
-    let chart
+    const chatId = message.chat.id
+    const from = message.from || {}
+    const username = from.username || `${from.first_name || ''} ${from.last_name || ''}`.trim()
 
-    async function loadReports() {
-      loadStatus.textContent = 'Memuat data...'
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .order('created_at', { ascending: false })
+    // Inisialisasi step
+    if (!userSteps[chatId]) {
+      userSteps[chatId] = { 
+        step: 'start',
+        photoBeforeUrl: null,
+        photoAfterUrl: null,
+        location: null,
+        reportData: {}
+      }
+    }
+    const current = userSteps[chatId]
 
+    // === /START ===
+    if (message.text && message.text.startsWith('/start')) {
+      await sendMessage(chatId,
+        `👋 *Selamat datang di Sistem Laporan Lapangan!*\n\n` +
+        `Ikuti langkah-langkah berikut:\n` +
+        `1️⃣ Kirim *foto eviden sebelum pekerjaan* 📸\n` +
+        `2️⃣ Kirim *foto eviden sesudah pekerjaan* 📸\n` +
+        `3️⃣ Kirim *lokasi (share location)* 📍\n` +
+        `4️⃣ Kirim laporan dengan format berikut:\n\n` +
+        `📋 *FORMAT REPORT:*\n` +
+        `Nama pekerjaan : [isi nama pekerjaan]\n` +
+        `Volume pekerjaan (M) : [isi angka]\n` +
+        `Material : [isi material]\n` +
+        `Keterangan : [catatan tambahan]\n\n` +
+        `Contoh:\n` +
+        `Nama pekerjaan : Tarik kabel\n` +
+        `Volume pekerjaan (M) : 120\n` +
+        `Material : KU48 | DE 2pcs\n` +
+        `Keterangan : Lancar tidak ada kendala.`
+      )
+      current.step = 'photo_before'
+      return res.status(200).send('welcome sent')
+    }
+
+    // === STEP 1: FOTO SEBELUM ===
+    if (message.photo && current.step === 'photo_before') {
+      const photoUrl = await uploadTelegramPhoto(message.photo)
+      if (!photoUrl) {
+        await sendMessage(chatId, '⚠️ Gagal upload foto eviden sebelum.')
+        return res.status(200).send('upload before fail')
+      }
+      current.photoBeforeUrl = photoUrl
+      current.step = 'photo_after'
+      await sendMessage(chatId, '✅ Foto eviden *sebelum* diterima.\nSekarang kirim *foto eviden sesudah* pekerjaan.')
+      return res.status(200).send('photo before ok')
+    }
+
+    // === STEP 2: FOTO SESUDAH ===
+    if (message.photo && current.step === 'photo_after') {
+      const photoUrl = await uploadTelegramPhoto(message.photo)
+      if (!photoUrl) {
+        await sendMessage(chatId, '⚠️ Gagal upload foto eviden sesudah.')
+        return res.status(200).send('upload after fail')
+      }
+      current.photoAfterUrl = photoUrl
+      current.step = 'location'
+      await sendMessage(chatId, '✅ Foto eviden *sesudah* diterima.\nSekarang kirim *lokasi pekerjaan (share location)* 📍')
+      return res.status(200).send('photo after ok')
+    }
+
+    // === STEP 3: LOKASI ===
+    if (message.location && current.step === 'location') {
+      current.location = {
+        lat: message.location.latitude,
+        lon: message.location.longitude,
+      }
+      current.step = 'text'
+      await sendMessage(chatId, '📍 Lokasi diterima.\nSekarang kirim *format laporan* sesuai contoh.')
+      return res.status(200).send('location ok')
+    }
+
+    // === STEP 4: FORMAT REPORT ===
+    if (message.text && !message.text.startsWith('/')) {
+      if (current.step !== 'text') {
+        await sendMessage(chatId, '⚠️ Kirim foto dan lokasi terlebih dahulu sebelum menulis laporan.')
+        return res.status(200).send('wrong order')
+      }
+
+      // Parsing teks
+      const text = message.text
+      const nama_pekerjaan = (text.match(/Nama pekerjaan\s*:\s*(.*)/i) || [])[1]?.trim() || null
+      const volume_pekerjaan = (text.match(/Volume pekerjaan.*?:\s*([\d.,]+)/i) || [])[1]?.trim() || null
+      const material = (text.match(/Material\s*:\s*(.*)/i) || [])[1]?.trim() || null
+      const keterangan = (text.match(/Keterangan\s*:\s*(.*)/i) || [])[1]?.trim() || null
+
+      if (!nama_pekerjaan || !volume_pekerjaan || !material) {
+        await sendMessage(chatId, '⚠️ Format tidak sesuai.\nPastikan isi semua kolom:\nNama pekerjaan, Volume, Material, dan Keterangan.')
+        return res.status(200).send('invalid format')
+      }
+
+      // Kirim ke Supabase
+      const payload = {
+        telegram_user: username,
+        photo_before_url: current.photoBeforeUrl,
+        photo_after_url: current.photoAfterUrl,
+        latitude: current.location?.lat,
+        longitude: current.location?.lon,
+        nama_pekerjaan,
+        volume_pekerjaan: parseFloat(volume_pekerjaan.replace(',', '.')),
+        material,
+        keterangan,
+      }
+
+      const { error } = await supabase.from('reports').insert([payload])
       if (error) {
-        console.error('Error ambil data:', error)
-        loadStatus.textContent = 'Gagal memuat data: ' + error.message
-        return
+        console.error('❌ Insert error:', error)
+        await sendMessage(chatId, '⚠️ Gagal menyimpan ke database.')
+        return res.status(200).send('insert fail')
       }
 
-      if (!data || data.length === 0) {
-        loadStatus.textContent = 'Belum ada laporan.'
-        tbody.innerHTML = ''
-        return
-      }
-
-      loadStatus.textContent = `Menampilkan ${data.length} laporan`
-      tbody.innerHTML = ''
-      data.forEach(r => {
-        const tr = document.createElement('tr')
-        const d = new Date(r.created_at).toLocaleString()
-        const loc = (r.latitude && r.longitude)
-          ? `${r.latitude.toFixed(6)}, ${r.longitude.toFixed(6)}`
-          : '-'
-        tr.innerHTML = `
-          <td>${d}</td>
-          <td>${r.nama_pekerjaan || '-'}</td>
-          <td>${r.volume_pekerjaan || '-'}</td>
-          <td>${r.material || '-'}</td>
-          <td>${r.keterangan || '-'}</td>
-          <td>${r.progress || '-'}</td>
-          <td>${loc}</td>
-          <td>${r.photo_before ? `<a href="${r.photo_before}" target="_blank"><img src="${r.photo_before}" class="thumb" /></a>` : '-'}</td>
-          <td>${r.photo_after ? `<a href="${r.photo_after}" target="_blank"><img src="${r.photo_after}" class="thumb" /></a>` : '-'}</td>
-        `
-        tbody.appendChild(tr)
-      })
+      await sendMessage(chatId, '✅ Laporan berhasil disimpan!\nTerima kasih atas input datanya 🙏')
+      delete userSteps[chatId]
+      return res.status(200).send('saved ok')
     }
 
-    async function loadDashboard() {
-      const { data, error } = await supabase
-        .from('reports')
-        .select('progress, telegram_user')
+    // fallback
+    await sendMessage(chatId, '📸 Kirim foto eviden *sebelum pekerjaan* untuk memulai.')
+    return res.status(200).send('waiting start')
 
-      if (error) return console.error('Error dashboard:', error)
-      if (!data?.length) return
+  } catch (err) {
+    console.error('❌ ERROR:', err)
+    return res.status(500).send('error')
+  }
+}
 
-      const parsed = data.map(r => {
-        const match = r.progress?.match(/([\d.,]+)\s*m/i)
-        return { user: r.telegram_user || 'Tanpa Nama', value: match ? parseFloat(match[1].replace(',', '.')) : 0 }
-      })
+// === HELPER: Kirim pesan ke Telegram ===
+async function sendMessage(chatId, text) {
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
+  })
+}
 
-      const teamProgress = {}
-      parsed.forEach(p => teamProgress[p.user] = (teamProgress[p.user] || 0) + p.value)
+// === HELPER: Upload foto Telegram ke Supabase Storage ===
+async function uploadTelegramPhoto(photoArray) {
+  try {
+    const photo = photoArray[photoArray.length - 1]
+    const getFile = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${photo.file_id}`)
+    const jf = await getFile.json()
+    if (!jf.ok) return null
 
-      const total = Object.values(teamProgress).reduce((a,b)=>a+b,0)
-      const target = 27000
-      const percent = ((total/target)*100).toFixed(1)
+    const path = jf.result.file_path
+    const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${path}`
+    const fileRes = await fetch(fileUrl)
+    const buffer = Buffer.from(await fileRes.arrayBuffer())
+    const fname = `${Date.now()}-${photo.file_id}.jpg`
 
-      document.getElementById('totalProgress').innerText = `Total Progress: ${total.toLocaleString()} m`
-      document.getElementById('percentProgress').innerText = `Pencapaian: ${percent}% dari target 27.000 m`
-
-      const ctx = document.getElementById('chart')
-      const labels = Object.keys(teamProgress)
-      const values = Object.values(teamProgress)
-      if (chart) chart.destroy()
-      chart = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets: [{ label:'Progress (m)', data: values, backgroundColor:'#3b82f6' }] },
-        options: { plugins:{legend:{display:false}} }
-      })
+    const { error: upErr } = await supabase.storage.from(BUCKET).upload(fname, buffer, { contentType: 'image/jpeg' })
+    if (upErr) {
+      console.error('Upload error:', upErr)
+      return null
     }
-
-    function downloadCSV() {
-      const rows = [['Tanggal','Nama Pekerjaan','Volume','Material','Keterangan','Progress','Latitude','Longitude','Eviden Sebelum','Eviden Sesudah']]
-      const trs = tbody.querySelectorAll('tr')
-      trs.forEach(tr => {
-        const tds = [...tr.querySelectorAll('td')].map(td=>td.innerText)
-        rows.push(tds)
-      })
-      const csv = rows.map(e => e.join(',')).join('\n')
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'laporan_rmj.csv'
-      a.click()
-      URL.revokeObjectURL(url)
-    }
-
-    loadReports()
-    loadDashboard()
-    setInterval(() => { loadReports(); loadDashboard() }, 30000)
-  </script>
-</body>
-</html>
+    const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(fname)
+    return pub.publicUrl
+  } catch (err) {
+    console.error('Upload fail:', err)
+    return null
+  }
+}
