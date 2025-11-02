@@ -1,5 +1,5 @@
-import fetch from "node-fetch";
-import { createClient } from "@supabase/supabase-js";
+const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+const { createClient } = require("@supabase/supabase-js");
 
 // === Konfigurasi ===
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -8,11 +8,9 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const userState = {}; // state sementara
 
-// State sementara untuk simpan proses user
-const userState = {}; // { userId: { step, category, before, after, ... } }
-
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method not allowed");
 
   try {
@@ -26,7 +24,7 @@ export default async function handler(req, res) {
     const username = from.username || "unknown";
     const fullname = `${from.first_name || ""} ${from.last_name || ""}`.trim();
 
-    // === Handle /start ===
+    // === /start ===
     if (msg.text === "/start") {
       const keyboard = {
         inline_keyboard: [
@@ -65,12 +63,10 @@ Tekan salah satu kategori di bawah ini untuk memulai.
       return res.status(200).send("start sent");
     }
 
-    // === Handle kategori (callback_data) ===
+    // === Callback kategori ===
     if (msg.data) {
       const category = msg.data;
-      if (!userState[userId]) userState[userId] = {};
-      userState[userId].category = category;
-      userState[userId].step = "before";
+      userState[userId] = { category, step: "before" };
 
       await sendMessage(
         chatId,
@@ -79,7 +75,7 @@ Tekan salah satu kategori di bawah ini untuk memulai.
       return res.status(200).send("category selected");
     }
 
-    // === Handle foto ===
+    // === Foto ===
     if (msg.photo) {
       const fileId = msg.photo[msg.photo.length - 1].file_id;
       const step = userState[userId]?.step || "before";
@@ -89,15 +85,15 @@ Tekan salah satu kategori di bawah ini untuk memulai.
       const fileBuffer = await fetch(fileUrl).then((r) => r.arrayBuffer());
       const fileName = `${Date.now()}_${step}_${userId}.jpg`;
 
-      const { data, error } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("survey_photos")
         .upload(fileName, Buffer.from(fileBuffer), {
           contentType: "image/jpeg",
           upsert: true,
         });
 
-      if (error) {
-        console.error("Upload error:", error);
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
         await sendMessage(chatId, "❌ Gagal mengunggah foto ke Supabase.");
         return res.status(200).send("upload fail");
       }
@@ -120,21 +116,22 @@ Tekan salah satu kategori di bawah ini untuk memulai.
       return res.status(200).send("photo ok");
     }
 
-    // === Handle lokasi ===
+    // === Lokasi ===
     if (msg.location) {
-      if (!userState[userId]) userState[userId] = {};
-      userState[userId].latitude = msg.location.latitude;
-      userState[userId].longitude = msg.location.longitude;
-      userState[userId].step = "report";
+      userState[userId] = {
+        ...userState[userId],
+        latitude: msg.location.latitude,
+        longitude: msg.location.longitude,
+        step: "report",
+      };
 
       await sendMessage(chatId, "✅ Lokasi tersimpan.\nSekarang kirim format laporan teks sesuai panduan.");
       return res.status(200).send("location ok");
     }
 
-    // === Handle teks laporan ===
+    // === Teks laporan ===
     if (msg.text && msg.text.includes("Nama pekerjaan")) {
       const state = userState[userId] || {};
-
       const nama_pekerjaan = (msg.text.match(/Nama pekerjaan\s*:\s*(.*)/i) || [])[1]?.trim();
       const volume_pekerjaan = (msg.text.match(/Volume.*?:\s*(.*)/i) || [])[1]?.trim();
       const material = (msg.text.match(/Material\s*:\s*(.*)/i) || [])[1]?.trim();
@@ -175,18 +172,14 @@ Tekan salah satu kategori di bawah ini untuk memulai.
     console.error("❌ Webhook error:", err);
     return res.status(500).send("internal error");
   }
-}
+};
 
-// === Helper: kirim pesan ke Telegram ===
+// === Helper: kirim pesan ===
 async function sendMessage(chatId, text, keyboard) {
-  const payload = {
-    chat_id: chatId,
-    text,
-    parse_mode: "Markdown",
-  };
+  const payload = { chat_id: chatId, text, parse_mode: "Markdown" };
   if (keyboard) payload.reply_markup = keyboard;
 
-  await fetch(`${TELEGRAM_API}/sendMessage`, {
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -195,7 +188,7 @@ async function sendMessage(chatId, text, keyboard) {
 
 // === Helper: ambil file URL Telegram ===
 async function getFileUrl(fileId) {
-  const res = await fetch(`${TELEGRAM_API}/getFile?file_id=${fileId}`);
+  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/getFile?file_id=${fileId}`);
   const data = await res.json();
   return `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${data.result.file_path}`;
-    }
+        }
