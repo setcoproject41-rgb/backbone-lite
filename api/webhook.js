@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     // === Foto ===
     if (msg.photo) {
       const fileId = msg.photo.at(-1).file_id;
-      const fileUrl = await getFileUrl(fileId);
+      const fileUrl = await uploadToSupabaseStorage(fileId, chatId);
       const state = userStates[chatId] || {};
 
       if (!state.photo_before_url) {
@@ -101,20 +101,24 @@ export default async function handler(req, res) {
       const state = userStates[chatId] || {};
       const { category, location, photo_before_url, photo_after_url } = state;
 
-      const { error } = await supabase.from("reports").insert([
-        {
-          category,
-          nama_pekerjaan,
-          volume_pekerjaan,
-          material,
-          keterangan,
-          photo_before_url,
-          photo_after_url,
-          latitude: location?.latitude,
-          longitude: location?.longitude,
-          created_at: new Date(),
-        },
-      ]);
+      const user = msg.from;
+const { error } = await supabase.from("reports").insert([
+  {
+    category,
+    nama_pekerjaan,
+    volume_pekerjaan,
+    material,
+    keterangan,
+    photo_before_url,
+    photo_after_url,
+    latitude: location?.latitude,
+    longitude: location?.longitude,
+    telegram_id: user.id,
+    telegram_username: user.username,
+    telegram_name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+    created_at: new Date(),
+  },
+]);
 
       if (error) {
         console.error("❌ Supabase error:", error);
@@ -155,4 +159,29 @@ async function getFileUrl(fileId) {
   const res = await fetch(`${TELEGRAM_API}/getFile?file_id=${fileId}`);
   const data = await res.json();
   return `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${data.result.file_path}`;
+}
+// === Upload foto Telegram ke Supabase Storage ===
+async function uploadToSupabaseStorage(fileId, chatId) {
+  const fileRes = await fetch(`${TELEGRAM_API}/getFile?file_id=${fileId}`);
+  const fileData = await fileRes.json();
+  const filePath = fileData.result.file_path;
+
+  const fileBuffer = await fetch(`https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${filePath}`)
+    .then(res => res.arrayBuffer());
+
+  const fileName = `${chatId}_${Date.now()}.jpg`;
+  const { data, error } = await supabase.storage
+    .from("reports") // ⬅️ pastikan bucket "reports" sudah dibuat di Supabase
+    .upload(fileName, Buffer.from(fileBuffer), {
+      contentType: "image/jpeg",
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("❌ Upload error:", error);
+    return null;
+  }
+
+  const { data: publicUrl } = supabase.storage.from("reports").getPublicUrl(fileName);
+  return publicUrl.publicUrl;
 }
