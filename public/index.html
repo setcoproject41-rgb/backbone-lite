@@ -5,83 +5,218 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard Laporan Lapangan</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       body {
-        font-family: Arial, sans-serif;
-        background: #f9fafb;
-        color: #333;
+        font-family: "Inter", sans-serif;
+        margin: 0;
+        background: #f5f7fb;
+        color: #1f2937;
+      }
+
+      header {
+        background: #1e3a8a;
+        color: white;
+        padding: 16px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      header button {
+        background: white;
+        color: #1e3a8a;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      main {
         padding: 20px;
       }
-      h1 {
-        color: #1e40af;
+
+      .filters {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
       }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin-top: 10px;
-      }
-      th, td {
-        border: 1px solid #ccc;
+
+      .filters select,
+      .filters input {
         padding: 8px;
-        text-align: left;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
       }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
       th {
         background: #2563eb;
         color: white;
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 14px;
       }
+
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 14px;
+      }
+
       img {
-        width: 100px;
+        width: 90px;
         border-radius: 8px;
+        object-fit: cover;
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.15);
+      }
+
+      tr:hover {
+        background: #f9fafb;
+      }
+
+      @media (max-width: 768px) {
+        table, thead, tbody, th, td, tr {
+          display: block;
+        }
+
+        thead {
+          display: none;
+        }
+
+        tr {
+          margin-bottom: 15px;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 10px;
+          background: white;
+        }
+
+        td {
+          border: none;
+          display: flex;
+          justify-content: space-between;
+          padding: 6px 0;
+        }
+
+        td::before {
+          content: attr(data-label);
+          font-weight: 600;
+          color: #4b5563;
+        }
       }
     </style>
   </head>
   <body>
-    <h1>📊 Dashboard Laporan Lapangan</h1>
-    <table id="reportsTable">
-      <thead>
-        <tr>
-          <th>Kategori</th>
-          <th>Nama</th>
-          <th>Volume</th>
-          <th>Material</th>
-          <th>Keterangan</th>
-          <th>Pelapor</th>
-          <th>Foto Sebelum</th>
-          <th>Foto Sesudah</th>
-          <th>Lokasi</th>
-          <th>Tanggal</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <header>
+      <h1>📊 Laporan Lapangan</h1>
+      <button onclick="loadReports()">↻ Refresh</button>
+    </header>
+
+    <main>
+      <div class="filters">
+        <select id="filterCategory" onchange="loadReports()">
+          <option value="">Semua Kategori</option>
+          <option>Jalan</option>
+          <option>Jembatan</option>
+          <option>Tiang</option>
+          <option>Kabel</option>
+          <option>Lainnya</option>
+        </select>
+        <input
+          type="text"
+          id="searchPelapor"
+          placeholder="Cari nama pelapor..."
+          oninput="loadReports()"
+        />
+      </div>
+
+      <table id="reportsTable">
+        <thead>
+          <tr>
+            <th>Kategori</th>
+            <th>Nama Pekerjaan</th>
+            <th>Volume</th>
+            <th>Material</th>
+            <th>Keterangan</th>
+            <th>Pelapor</th>
+            <th>Foto Sebelum</th>
+            <th>Foto Sesudah</th>
+            <th>Lokasi</th>
+            <th>Tanggal</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </main>
 
     <script>
-      const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
-      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
+      const SUPABASE_URL = "https://YOUR_URL.supabase.co";
+      const SUPABASE_KEY = "YOUR_PUBLIC_ANON_KEY";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
       async function loadReports() {
-        const { data, error } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
+        const category = document.getElementById("filterCategory").value;
+        const search = document.getElementById("searchPelapor").value.toLowerCase();
+
+        let query = supabase.from("reports").select("*").order("created_at", { ascending: false });
+
+        if (category) query = query.eq("category", category);
+
+        const { data, error } = await query;
         if (error) {
           console.error(error);
           return;
         }
 
+        const filtered = data.filter((r) =>
+          (r.telegram_name || "").toLowerCase().includes(search)
+        );
+
         const tbody = document.querySelector("tbody");
         tbody.innerHTML = "";
-        data.forEach((r) => {
+
+        filtered.forEach((r) => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${r.category || "-"}</td>
-            <td>${r.nama_pekerjaan || "-"}</td>
-            <td>${r.volume_pekerjaan || "-"}</td>
-            <td>${r.material || "-"}</td>
-            <td>${r.keterangan || "-"}</td>
-            <td>${r.telegram_name || r.telegram_username || "-"}</td>
-            <td><img src="${r.photo_before_url}" alt="before"></td>
-            <td><img src="${r.photo_after_url}" alt="after"></td>
-            <td>${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}</td>
-            <td>${new Date(r.created_at).toLocaleString("id-ID")}</td>
+            <td data-label="Kategori">${r.category || "-"}</td>
+            <td data-label="Nama">${r.nama_pekerjaan || "-"}</td>
+            <td data-label="Volume">${r.volume_pekerjaan || "-"}</td>
+            <td data-label="Material">${r.material || "-"}</td>
+            <td data-label="Keterangan">${r.keterangan || "-"}</td>
+            <td data-label="Pelapor">${r.telegram_name || r.telegram_username || "-"}</td>
+            <td data-label="Sebelum"><img src="${r.photo_before_url}" alt="before"></td>
+            <td data-label="Sesudah"><img src="${r.photo_after_url}" alt="after"></td>
+            <td data-label="Lokasi">${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}</td>
+            <td data-label="Tanggal">${new Date(r.created_at).toLocaleString("id-ID")}</td>
           `;
           tbody.appendChild(tr);
         });
