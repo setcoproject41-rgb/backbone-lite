@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Laporan Lapangan</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f9fafb;
+        color: #333;
+        padding: 20px;
+      }
+      h1 {
+        color: #1e40af;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 10px;
+      }
+      th, td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background: #2563eb;
+        color: white;
+      }
+      img {
+        width: 100px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📊 Dashboard Laporan Lapangan</h1>
+    <table id="reportsTable">
+      <thead>
+        <tr>
+          <th>Kategori</th>
+          <th>Nama</th>
+          <th>Volume</th>
+          <th>Material</th>
+          <th>Keterangan</th>
+          <th>Pelapor</th>
+          <th>Foto Sebelum</th>
+          <th>Foto Sesudah</th>
+          <th>Lokasi</th>
+          <th>Tanggal</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script>
+      const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      async function loadReports() {
+        const { data, error } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
+        if (error) {
+          console.error(error);
+          return;
+        }
+
+        const tbody = document.querySelector("tbody");
+        tbody.innerHTML = "";
+        data.forEach((r) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${r.category || "-"}</td>
+            <td>${r.nama_pekerjaan || "-"}</td>
+            <td>${r.volume_pekerjaan || "-"}</td>
+            <td>${r.material || "-"}</td>
+            <td>${r.keterangan || "-"}</td>
+            <td>${r.telegram_name || r.telegram_username || "-"}</td>
+            <td><img src="${r.photo_before_url}" alt="before"></td>
+            <td><img src="${r.photo_after_url}" alt="after"></td>
+            <td>${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}</td>
+            <td>${new Date(r.created_at).toLocaleString("id-ID")}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      loadReports();
+    </script>
+  </body>
+</html>
