@@ -74,6 +74,29 @@
       padding: 20px;
       font-size: 12px;
     }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 400px;
+    }
+    input, select, button {
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #4b3efc;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #3a2ed0; }
+    .msg {
+      margin-top: 10px;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -121,7 +144,24 @@
 <!-- SET TARGET -->
 <section id="settargetTab" class="card" style="display:none;">
   <h2>🎯 Set Target</h2>
-  <p>Fitur input target akan dikembangkan berikutnya.</p>
+  <form id="targetForm">
+    <label>Kategori:</label>
+    <select id="category">
+      <option value="">-- Pilih Kategori --</option>
+      <option value="Jalan">Jalan</option>
+      <option value="Tiang">Tiang</option>
+      <option value="Jembatan">Jembatan</option>
+      <option value="Kabel">Kabel</option>
+      <option value="Galian">Galian</option>
+      <option value="Lain-Lain">Lain-Lain</option>
+    </select>
+
+    <label>Target Volume (m):</label>
+    <input type="number" id="targetVolume" placeholder="contoh: 5000" />
+
+    <button type="submit">Simpan Target</button>
+  </form>
+  <div id="targetMessage" class="msg"></div>
 </section>
 
   </main>  <footer>© 2025 Dashboard Project - Backbone Lite</footer>  <script>
@@ -139,8 +179,6 @@
         console.error("Error reports:", errReports);
         return;
       }
-      if (errTargets) console.warn("Warning: tidak ada tabel target:", errTargets);
-
       renderDashboard(reports, targets || []);
       renderTable(reports);
       renderChart(reports);
@@ -211,6 +249,36 @@
       document.querySelectorAll("nav a").forEach(a => a.classList.remove("active"));
       document.querySelector(`nav a[onclick="showTab('${tab}')"]`).classList.add("active");
     }
+
+    // === Form Simpan Target ===
+    document.getElementById("targetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const category = document.getElementById("category").value;
+      const volume = parseFloat(document.getElementById("targetVolume").value);
+      const msg = document.getElementById("targetMessage");
+
+      if (!category || !volume) {
+        msg.style.color = "red";
+        msg.textContent = "⚠️ Harap isi semua kolom.";
+        return;
+      }
+
+      const { error } = await sb.from("targets").insert([{ category, target_volume: volume }]);
+      if (error) {
+        console.error(error);
+        msg.style.color = "red";
+        msg.textContent = "❌ Gagal menyimpan target.";
+      } else {
+        msg.style.color = "green";
+        msg.textContent = "✅ Target berhasil disimpan!";
+        document.getElementById("targetForm").reset();
+        setTimeout(() => {
+          msg.textContent = "";
+          loadDashboard();
+          showTab("dashboard");
+        }, 1000);
+      }
+    });
 
     // === Jalankan ===
     loadDashboard();
