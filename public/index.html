@@ -156,28 +156,32 @@
     }
 
     function renderTable(data) {
-      const tbody = document.querySelector("#reportTable tbody");
-      tbody.innerHTML = "";
-      data.forEach(r => {
-        const lat = r.latitude != null ? r.latitude.toFixed(5) : '-';
-        const lon = r.longitude != null ? r.longitude.toFixed(5) : '-';
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
-          <td>${r.category || '-'}</td>
-          <td>${r.nama_pekerjaan || '-'}</td>
-          <td>${r.volume_pekerjaan || '-'}</td>
+  const tbody = document.querySelector("#reportTable tbody");
+  tbody.innerHTML = "";
 
-Adi Rezky, [03/11/2025 10:33]
-<td>${r.material || '-'}</td>
-          <td>${r.keterangan || '-'}</td>
-          <td>${lat}, ${lon}</td>
-          <td>${r.photo_before_url ? <img src="${r.photo_before_url}"> : '-'}</td>
-          <td>${r.photo_after_url ? <img src="${r.photo_after_url}"> : '-'}</td>
-        ;
-        tbody.appendChild(tr);
-      });
-    }
+  data.forEach(r => {
+    // simpan nilai dengan default
+    const lat = r.latitude != null ? r.latitude.toFixed(5) : '-';
+    const lon = r.longitude != null ? r.longitude.toFixed(5) : '-';
+    const photoBefore = r.photo_before_url || r.photo_url || '-';
+    const photoAfter = r.photo_after_url || '-';
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
+      <td>${r.category || '-'}</td>
+      <td>${r.nama_pekerjaan || '-'}</td>
+      <td>${r.volume_pekerjaan || '-'}</td>
+      <td>${r.material || '-'}</td>
+      <td>${r.keterangan || '-'}</td>
+      <td>${lat}, ${lon}</td>
+      <td>${photoBefore !== '-' ? `<img src="${photoBefore}">` : '-'}</td>
+      <td>${photoAfter !== '-' ? `<img src="${photoAfter}">` : '-'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 
     // ===== DASHBOARD =====
     function updateDashboard(data) {
