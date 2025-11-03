@@ -4,235 +4,222 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>📊 Dashboard Pelaporan</title>
-  <link rel="icon" href="data:,">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: "Segoe UI", sans-serif;
-      background-color: #f5f7fa;
+      font-family: Arial, sans-serif;
       margin: 0;
-      padding: 0;
+      background: #f5f6fa;
     }
     header {
       background-color: #007bff;
       color: white;
-      padding: 10px;
       text-align: center;
+      padding: 10px;
       font-weight: bold;
     }
     nav {
-      background: #f1f1f1;
       display: flex;
       justify-content: center;
-      gap: 30px;
+      background: #eee;
       padding: 10px;
     }
     button {
+      margin: 5px;
+      padding: 8px 15px;
       background-color: #007bff;
       color: white;
       border: none;
       border-radius: 6px;
-      padding: 8px 16px;
       cursor: pointer;
-      font-weight: 600;
-      transition: background 0.2s ease;
     }
     button:hover {
       background-color: #0056b3;
     }
-    section {
-      display: none;
+    .content {
       background: white;
-      padding: 20px;
       margin: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    section.active {
-      display: block;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 15px;
     }
     th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: left;
-    }
-    th {
-      background-color: #007bff;
-      color: white;
-    }
-    select, input {
       padding: 8px;
       border: 1px solid #ccc;
-      border-radius: 5px;
-      width: 200px;
-      margin: 5px 0;
+      text-align: left;
     }
   </style>
 </head>
+
 <body>
   <header>📊 Dashboard Pelaporan</header>
 
   <nav>
     <button onclick="showTab('dashboard')">Dashboard</button>
-    <button onclick="showTab('setTarget')">Set Target</button>
+    <button onclick="showTab('settarget')">Set Target</button>
     <button onclick="showTab('boq')">BOQ</button>
-    <button onclick="showTab('detailProgres')">Detail Progres</button>
+    <button onclick="showTab('detail')">Detail Progres</button>
   </nav>
 
-  <!-- Dashboard -->
-  <section id="dashboard" class="active">
-    <h2>Grafik Capaian Target</h2>
-    <canvas id="chartProgress" height="120"></canvas>
-  </section>
-
-  <!-- Set Target -->
-  <section id="setTarget">
-    <h2>Set Target Berdasarkan Kategori</h2>
-    <label>Kategori:</label>
-    <select id="categoryDropdown">
-      <option value="Jalan">Jalan</option>
-      <option value="Tiang">Tiang</option>
-      <option value="Jembatan">Jembatan</option>
-      <option value="Kabel">Kabel</option>
-      <option value="Galian">Galian</option>
-      <option value="Lain-Lain">Lain-Lain</option>
-    </select><br>
-    <label>Target Volume:</label>
-    <input type="number" id="targetVolume" placeholder="Masukkan target volume">
-    <button id="saveTarget">Simpan Target</button>
-  </section>
-
-  <!-- BOQ -->
-  <section id="boq">
-    <h2>Template BOQ</h2>
-    <div id="boqList"></div>
-  </section>
-
-  <!-- Detail Progres -->
-  <section id="detailProgres">
-    <h2>Detail Progres Pekerjaan</h2>
-    <table id="reportsTable">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Kategori</th>
-          <th>Nama Pekerjaan</th>
-          <th>Volume</th>
-          <th>Material</th>
-          <th>Keterangan</th>
-          <th>Foto Sebelum</th>
-          <th>Foto Sesudah</th>
-          <th>Telegram</th>
-          <th>Dibuat</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
+  <div id="content" class="content"></div>
 
   <script>
-    // ==================== SUPABASE SETUP ====================
-    const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co"; // Ganti dengan project kamu
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg"; // Ganti dengan anon key kamu
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // ---------- STEP 2: Inisialisasi Supabase ----------
+    const supabaseUrl = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    // ==================== NAVIGASI TAB ====================
-    function showTab(tabId) {
-      document.querySelectorAll("section").forEach(sec => sec.classList.remove("active"));
-      document.getElementById(tabId).classList.add("active");
+    // ---------- STEP 3: Fungsi Navigasi ----------
+    function showTab(tab) {
+      if (tab === 'dashboard') loadDashboard();
+      else if (tab === 'settarget') loadSetTarget();
+      else if (tab === 'boq') loadBOQ();
+      else if (tab === 'detail') loadDetail();
     }
-    window.showTab = showTab; // biar tombol bisa akses fungsi ini
 
-    // ==================== DASHBOARD ====================
+    // ---------- STEP 4: Dashboard (Grafik Kurva-S) ----------
     async function loadDashboard() {
-      const { data: reports } = await supabase.from("reports").select("*");
-      const { data: targets } = await supabase.from("targets").select("*");
-      if (!reports?.length || !targets?.length) return;
+      document.getElementById("content").innerHTML = `<h3>Grafik Kurva-S Capaian Target</h3>
+      <canvas id="kurvaSChart"></canvas>`;
 
-      const totals = {};
-      reports.forEach(r => {
-        const cat = r.category || "Lainnya";
-        totals[cat] = (totals[cat] || 0) + (parseFloat(r.volume_pekerjaan) || 0);
+      const { data: reports } = await supabase.from('reports').select('*');
+      const { data: targets } = await supabase.from('targets').select('*');
+
+      if (!reports || !targets) return alert("Gagal mengambil data.");
+
+      // Kumpulkan data volume per kategori
+      const kategoriUnik = [...new Set(targets.map(t => t.category))];
+      const progres = kategoriUnik.map(kat => {
+        const totalTarget = targets.find(t => t.category === kat)?.target_volume || 0;
+        const totalReport = reports
+          .filter(r => r.category === kat)
+          .reduce((a, b) => a + (parseFloat(b.volume_pekerjaan) || 0), 0);
+        const persen = totalTarget ? (totalReport / totalTarget) * 100 : 0;
+        return { kategori: kat, target: totalTarget, realisasi: totalReport, persen };
       });
 
-      const categories = targets.map(t => t.category);
-      const progress = categories.map(cat => {
-        const total = totals[cat] || 0;
-        const target = parseFloat(targets.find(t => t.category === cat)?.target_volume || 1);
-        return ((total / target) * 100).toFixed(1);
-      });
+      // Buat data untuk kurva-S (persentase kumulatif)
+      const cumulative = progres.reduce((arr, curr, idx) => {
+        const total = idx === 0 ? curr.persen : arr[idx - 1] + curr.persen;
+        arr.push(total);
+        return arr;
+      }, []);
 
-      const ctx = document.getElementById("chartProgress").getContext("2d");
+      const ctx = document.getElementById("kurvaSChart").getContext("2d");
       new Chart(ctx, {
-        type: "bar",
+        type: 'line',
         data: {
-          labels: categories,
-          datasets: [{
-            label: "Persentase Capaian (%)",
-            data: progress,
-            backgroundColor: "#007bff"
-          }]
+          labels: progres.map(p => p.kategori),
+          datasets: [
+            {
+              label: 'Capaian Kumulatif (%)',
+              data: cumulative,
+              borderColor: '#007bff',
+              fill: false,
+              tension: 0.3,
+              pointBackgroundColor: '#007bff'
+            }
+          ]
         },
-        options: { scales: { y: { beginAtZero: true, max: 100 } } }
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              title: { display: true, text: 'Persentase (%)' }
+            }
+          },
+          plugins: {
+            legend: { display: true },
+            tooltip: { enabled: true }
+          }
+        }
       });
     }
 
-    // ==================== SET TARGET ====================
-    document.getElementById("saveTarget").onclick = async () => {
-      const category = document.getElementById("categoryDropdown").value;
-      const target = document.getElementById("targetVolume").value;
-      if (!category || !target) return alert("Lengkapi data terlebih dahulu!");
-      const { error } = await supabase.from("targets").upsert({ category, target_volume: target });
-      if (error) return alert("Gagal menyimpan target!");
-      alert("Target berhasil disimpan!");
-      await loadDashboard();
-    };
+    // ---------- STEP 5: Set Target ----------
+    async function loadSetTarget() {
+      document.getElementById("content").innerHTML = `
+        <h3>Set Target Pekerjaan</h3>
+        <label>Kategori:</label>
+        <select id="category">
+          <option value="Jalan">Jalan</option>
+          <option value="Tiang">Tiang</option>
+          <option value="Jembatan">Jembatan</option>
+          <option value="Kabel">Kabel</option>
+          <option value="Galian">Galian</option>
+          <option value="Lain-Lain">Lain-Lain</option>
+        </select><br><br>
+        <label>Target Volume:</label>
+        <input type="number" id="target_volume" /><br><br>
+        <button onclick="saveTarget()">Simpan Target</button>
+      `;
+    }
 
-    // ==================== BOQ (STORAGE templates) ====================
+    async function saveTarget() {
+      const category = document.getElementById("category").value;
+      const target_volume = parseFloat(document.getElementById("target_volume").value);
+
+      if (!category || !target_volume) return alert("Isi semua kolom!");
+
+      const { error } = await supabase.from("targets").insert([{ category, target_volume }]);
+      if (error) alert("❌ Gagal menyimpan target: " + error.message);
+      else alert("✅ Target berhasil disimpan!");
+    }
+
+    // ---------- STEP 6: BOQ ----------
     async function loadBOQ() {
       const { data, error } = await supabase.storage.from("templates").list();
-      if (error) return console.error(error);
-      const list = document.getElementById("boqList");
-      list.innerHTML = data.map(file => {
-        const url = supabase.storage.from("templates").getPublicUrl(file.name).data.publicUrl;
-        return `<p>📄 <a href="${url}" target="_blank">${file.name}</a></p>`;
-      }).join("");
+      if (error) return alert("Gagal memuat file BOQ.");
+      const files = data.map(f => 
+        `<li><a href="${supabase.storage.from('templates').getPublicUrl(f.name).data.publicUrl}" target="_blank">${f.name}</a></li>`
+      ).join('');
+      document.getElementById("content").innerHTML = `<h3>Daftar File BOQ</h3><ul>${files}</ul>`;
     }
 
-    // ==================== DETAIL PROGRES ====================
-    async function loadReports() {
-      const { data, error } = await supabase.from("reports").select("*");
-      if (error) return console.error(error);
-      const tbody = document.querySelector("#reportsTable tbody");
-      tbody.innerHTML = data.map(r => `
+    // ---------- STEP 7: Detail Progres ----------
+    async function loadDetail() {
+      const { data, error } = await supabase.from('reports').select('*');
+      if (error) return alert("Gagal memuat data progres.");
+
+      const rows = data.map(r => `
         <tr>
-          <td>${r.id}</td>
           <td>${r.category}</td>
-          <td>${r.nama_pekerjaan}</td>
-          <td>${r.volume_pekerjaan}</td>
-          <td>${r.material}</td>
-          <td>${r.keterangan || ""}</td>
-          <td><a href="${r.photo_before_url}" target="_blank">Lihat</a></td>
-          <td><a href="${r.photo_after_url}" target="_blank">Lihat</a></td>
-          <td>${r.telegram_username || ""}</td>
-          <td>${new Date(r.created_at).toLocaleString()}</td>
+          <td>${r.nama_pekerjaan || '-'}</td>
+          <td>${r.volume_pekerjaan || '-'}</td>
+          <td>${r.material || '-'}</td>
+          <td>${r.keterangan || '-'}</td>
+          <td><a href="${r.photo_before_url || '#'}" target="_blank">Before</a></td>
+          <td><a href="${r.photo_after_url || '#'}" target="_blank">After</a></td>
         </tr>
-      `).join("");
+      `).join('');
+
+      document.getElementById("content").innerHTML = `
+        <h3>Detail Progres Lapangan</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Kategori</th>
+              <th>Pekerjaan</th>
+              <th>Volume</th>
+              <th>Material</th>
+              <th>Keterangan</th>
+              <th>Before</th>
+              <th>After</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
     }
 
-    // ==================== LOAD AWAL ====================
-    document.addEventListener("DOMContentLoaded", async () => {
-      await loadDashboard();
-      await loadBOQ();
-      await loadReports();
-      console.log("✅ Dashboard siap digunakan");
-    });
+    // ---------- STEP 8: Muat Awal ----------
+    showTab('dashboard');
   </script>
 </body>
 </html>
