@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>📊 Dashboard Pelaporan</title>
+  <title>📊 Dashboard Pelaporan - Kurva S</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -16,14 +16,17 @@
       background-color: #007bff;
       color: white;
       text-align: center;
-      padding: 10px;
+      padding: 12px;
+      font-size: 1.2em;
       font-weight: bold;
+      letter-spacing: 0.5px;
     }
     nav {
       display: flex;
       justify-content: center;
       background: #eee;
       padding: 10px;
+      border-bottom: 1px solid #ccc;
     }
     button {
       margin: 5px;
@@ -33,9 +36,11 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      transition: 0.2s;
     }
     button:hover {
       background-color: #0056b3;
+      transform: scale(1.03);
     }
     .content {
       background: white;
@@ -53,12 +58,13 @@
       padding: 8px;
       border: 1px solid #ccc;
       text-align: left;
+      font-size: 0.9em;
     }
   </style>
 </head>
 
 <body>
-  <header>📊 Dashboard Pelaporan</header>
+  <header>📊 Dashboard Pelaporan - Kurva S</header>
 
   <nav>
     <button onclick="showTab('dashboard')">Dashboard</button>
@@ -70,12 +76,12 @@
   <div id="content" class="content"></div>
 
   <script>
-    // ---------- STEP 2: Inisialisasi Supabase ----------
+    // ---------- STEP 1: Inisialisasi Supabase ----------
     const supabaseUrl = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
     const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    // ---------- STEP 3: Fungsi Navigasi ----------
+    // ---------- STEP 2: Navigasi ----------
     function showTab(tab) {
       if (tab === 'dashboard') loadDashboard();
       else if (tab === 'settarget') loadSetTarget();
@@ -83,67 +89,75 @@
       else if (tab === 'detail') loadDetail();
     }
 
-    // ---------- STEP 4: Dashboard (Grafik Kurva-S) ----------
+    // ---------- STEP 3: DASHBOARD (Kurva S) ----------
     async function loadDashboard() {
-      document.getElementById("content").innerHTML = `<h3>Grafik Kurva-S Capaian Target</h3>
-      <canvas id="kurvaSChart"></canvas>`;
+      document.getElementById("content").innerHTML = `
+        <h3>Grafik Kurva-S Progres Lapangan</h3>
+        <canvas id="kurvaSChart"></canvas>
+      `;
 
-      const { data: reports } = await supabase.from('reports').select('*');
-      const { data: targets } = await supabase.from('targets').select('*');
+      const { data: reports, error: e1 } = await supabase.from("reports").select("*");
+      const { data: targets, error: e2 } = await supabase.from("targets").select("*");
+      if (e1 || e2) return alert("❌ Gagal mengambil data.");
 
-      if (!reports || !targets) return alert("Gagal mengambil data.");
+      if (!reports?.length || !targets?.length)
+        return (document.getElementById("content").innerHTML += "<p>Tidak ada data untuk ditampilkan.</p>");
 
-      // Kumpulkan data volume per kategori
-      const kategoriUnik = [...new Set(targets.map(t => t.category))];
-      const progres = kategoriUnik.map(kat => {
-        const totalTarget = targets.find(t => t.category === kat)?.target_volume || 0;
-        const totalReport = reports
-          .filter(r => r.category === kat)
-          .reduce((a, b) => a + (parseFloat(b.volume_pekerjaan) || 0), 0);
-        const persen = totalTarget ? (totalReport / totalTarget) * 100 : 0;
-        return { kategori: kat, target: totalTarget, realisasi: totalReport, persen };
+      const totalTarget = targets.reduce((a, b) => a + (b.target_volume || 0), 0);
+      const progresByTanggal = {};
+
+      reports.forEach(r => {
+        const tanggal = new Date(r.tanggal || r.created_at).toISOString().split("T")[0];
+        progresByTanggal[tanggal] = (progresByTanggal[tanggal] || 0) + (parseFloat(r.volume_pekerjaan) || 0);
       });
 
-      // Buat data untuk kurva-S (persentase kumulatif)
-      const cumulative = progres.reduce((arr, curr, idx) => {
-        const total = idx === 0 ? curr.persen : arr[idx - 1] + curr.persen;
-        arr.push(total);
-        return arr;
-      }, []);
+      const tanggalSorted = Object.keys(progresByTanggal).sort();
+      const kumulatif = [];
+      let total = 0;
+      tanggalSorted.forEach(tgl => {
+        total += progresByTanggal[tgl];
+        kumulatif.push((total / totalTarget) * 100);
+      });
 
       const ctx = document.getElementById("kurvaSChart").getContext("2d");
       new Chart(ctx, {
-        type: 'line',
+        type: "line",
         data: {
-          labels: progres.map(p => p.kategori),
+          labels: tanggalSorted,
           datasets: [
             {
-              label: 'Capaian Kumulatif (%)',
-              data: cumulative,
-              borderColor: '#007bff',
-              fill: false,
-              tension: 0.3,
-              pointBackgroundColor: '#007bff'
+              label: "Capaian Kumulatif (%)",
+              data: kumulatif,
+              borderColor: "#28a745",
+              backgroundColor: "rgba(40,167,69,0.2)",
+              fill: true,
+              tension: 0.4,
+              pointRadius: 4,
+              pointBackgroundColor: "#155724"
             }
           ]
         },
         options: {
+          responsive: true,
           scales: {
             y: {
               beginAtZero: true,
               max: 100,
-              title: { display: true, text: 'Persentase (%)' }
+              title: { display: true, text: "Progress (%)" }
+            },
+            x: {
+              title: { display: true, text: "Tanggal" }
             }
           },
           plugins: {
-            legend: { display: true },
-            tooltip: { enabled: true }
+            legend: { position: "bottom" },
+            tooltip: { mode: "index", intersect: false }
           }
         }
       });
     }
 
-    // ---------- STEP 5: Set Target ----------
+    // ---------- STEP 4: SET TARGET ----------
     async function loadSetTarget() {
       document.getElementById("content").innerHTML = `
         <h3>Set Target Pekerjaan</h3>
@@ -165,41 +179,37 @@
     async function saveTarget() {
       const category = document.getElementById("category").value;
       const target_volume = parseFloat(document.getElementById("target_volume").value);
-
       if (!category || !target_volume) return alert("Isi semua kolom!");
-
       const { error } = await supabase.from("targets").insert([{ category, target_volume }]);
       if (error) alert("❌ Gagal menyimpan target: " + error.message);
       else alert("✅ Target berhasil disimpan!");
     }
 
-    // ---------- STEP 6: BOQ ----------
+    // ---------- STEP 5: BOQ ----------
     async function loadBOQ() {
       const { data, error } = await supabase.storage.from("templates").list();
-      if (error) return alert("Gagal memuat file BOQ.");
-      const files = data.map(f => 
+      if (error) return alert("❌ Gagal memuat file BOQ.");
+      const files = data.map(f =>
         `<li><a href="${supabase.storage.from('templates').getPublicUrl(f.name).data.publicUrl}" target="_blank">${f.name}</a></li>`
-      ).join('');
+      ).join("");
       document.getElementById("content").innerHTML = `<h3>Daftar File BOQ</h3><ul>${files}</ul>`;
     }
 
-    // ---------- STEP 7: Detail Progres ----------
+    // ---------- STEP 6: DETAIL PROGRES ----------
     async function loadDetail() {
-      const { data, error } = await supabase.from('reports').select('*');
-      if (error) return alert("Gagal memuat data progres.");
-
+      const { data, error } = await supabase.from("reports").select("*");
+      if (error) return alert("❌ Gagal memuat data progres.");
       const rows = data.map(r => `
         <tr>
           <td>${r.category}</td>
-          <td>${r.nama_pekerjaan || '-'}</td>
-          <td>${r.volume_pekerjaan || '-'}</td>
-          <td>${r.material || '-'}</td>
-          <td>${r.keterangan || '-'}</td>
-          <td><a href="${r.photo_before_url || '#'}" target="_blank">Before</a></td>
-          <td><a href="${r.photo_after_url || '#'}" target="_blank">After</a></td>
+          <td>${r.nama_pekerjaan || "-"}</td>
+          <td>${r.volume_pekerjaan || "-"}</td>
+          <td>${r.material || "-"}</td>
+          <td>${r.keterangan || "-"}</td>
+          <td><a href="${r.photo_before_url || "#"}" target="_blank">Before</a></td>
+          <td><a href="${r.photo_after_url || "#"}" target="_blank">After</a></td>
         </tr>
-      `).join('');
-
+      `).join("");
       document.getElementById("content").innerHTML = `
         <h3>Detail Progres Lapangan</h3>
         <table>
@@ -218,8 +228,8 @@
         </table>`;
     }
 
-    // ---------- STEP 8: Muat Awal ----------
-    showTab('dashboard');
+    // ---------- STEP 7: MUAT AWAL ----------
+    showTab("dashboard");
   </script>
 </body>
 </html>
