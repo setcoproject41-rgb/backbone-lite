@@ -101,10 +101,25 @@
     // === SUPABASE CONFIG ===
     const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co"; // Ganti dengan URL kamu
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";                // Ganti dengan anon key kamu
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const categories = ["Jalan", "Tiang", "Jembatan", "Kabel", "Lainnya"];
-    let chart; // simpan chart instance global
+async function loadReports() {
+  const { data: reports, error } = await supabase.from("reports").select("*");
+  console.log("Reports loaded:", reports, error);
+
+  if (error) {
+    alert("Gagal memuat data: " + error.message);
+    return;
+  }
+
+  if (!reports || reports.length === 0) {
+    document.getElementById("dashboard").innerHTML = "Belum ada data laporan";
+    return;
+  }
+
+  renderDashboard(reports);
+  renderReportList(reports);
+}// simpan chart instance global
 
     // === LOAD DASHBOARD ===
     async function loadDashboard() {
