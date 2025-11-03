@@ -3,203 +3,232 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Project</title>
+  <title>Dashboard Kemajuan Project</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      margin: 0;
+      background: #f5f6fa;
+      color: #333;
+    }
+    header {
+      background: #4b3efc;
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+    }
+    nav a {
+      color: white;
+      margin-left: 15px;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    nav a.active {
+      text-decoration: underline;
+    }
+    main {
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .summary div {
+      flex: 1;
+      background: #f9f9ff;
+      border-radius: 8px;
+      text-align: center;
+      padding: 10px;
+    }
+    .summary div h3 {
+      margin: 5px 0;
+      font-size: 24px;
+    }
+    footer {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #eee;
+      padding: 8px;
+      font-size: 13px;
+      text-align: left;
+    }
+    th {
+      background: #fafafa;
+    }
+    img {
+      border-radius: 5px;
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
-
-  <!-- HEADER -->
-  <header class="bg-indigo-600 text-white py-4 shadow-md">
-    <div class="max-w-5xl mx-auto flex justify-between items-center px-4">
-      <h1 class="text-xl font-bold">📈 Dashboard Kemajuan Project</h1>
-      <nav class="space-x-4 text-sm">
-        <button class="hover:underline" onclick="showTab('dashboard')">Dashboard</button>
-        <button class="hover:underline" onclick="showTab('setTarget')">Set Target</button>
-        <button class="hover:underline" onclick="showTab('detail')">Detail Progress</button>
-      </nav>
-    </div>
+<body>
+  <header>
+    <h1>📊 Dashboard Kemajuan Project</h1>
+    <nav>
+      <a href="#" class="active" onclick="showTab('dashboard')">Dashboard</a>
+      <a href="#" onclick="showTab('settarget')">Set Target</a>
+      <a href="#" onclick="showTab('detail')">Detail Progress</a>
+    </nav>
   </header>
 
-  <!-- MAIN CONTENT -->
-  <main class="max-w-5xl mx-auto p-6 space-y-6">
-    
-    <!-- ===== DASHBOARD ===== -->
-    <section id="dashboardTab" class="tab">
-      <div class="bg-white shadow-md rounded-lg p-6">
-        <h2 class="text-lg font-semibold mb-4">📊 Ringkasan Kemajuan</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-          <div class="bg-indigo-50 rounded-lg p-4">
-            <p class="text-gray-500">Total Progress</p>
-            <p id="totalVolume" class="text-2xl font-bold">0 m</p>
-          </div>
-          <div class="bg-indigo-50 rounded-lg p-4">
-            <p class="text-gray-500">% Capaian</p>
-            <p id="percentProgress" class="text-2xl font-bold">0%</p>
-          </div>
-          <div class="bg-indigo-50 rounded-lg p-4">
-            <p class="text-gray-500">Hari ke-</p>
-            <p id="dayProgress" class="text-2xl font-bold">0 / 60</p>
-          </div>
+  <main>
+    <section id="dashboardTab" class="card">
+      <h2>📈 Ringkasan Kemajuan</h2>
+      <div class="summary">
+        <div>
+          <p>Total Progress</p>
+          <h3 id="totalProgress">0 m</h3>
+        </div>
+        <div>
+          <p>% Capaian</p>
+          <h3 id="percentProgress">0%</h3>
+        </div>
+        <div>
+          <p>Hari ke-</p>
+          <h3 id="dayProgress">0 / 60</h3>
         </div>
       </div>
-
-      <!-- GRAFIK -->
-      <div class="bg-white shadow-md rounded-lg p-6">
-        <h2 class="text-lg font-semibold mb-4">📈 Grafik Batang per Kategori</h2>
-        <canvas id="chartCategory" height="100"></canvas>
-      </div>
     </section>
 
-    <!-- ===== SET TARGET ===== -->
-    <section id="setTargetTab" class="tab hidden">
-      <div class="bg-white shadow-md rounded-lg p-6">
-        <h2 class="text-lg font-semibold mb-4">🎯 Set Target Volume per Kategori</h2>
-        <form id="targetForm" class="space-y-4">
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">Pilih Kategori</label>
-            <select id="category" class="w-full border rounded-lg p-2 focus:ring focus:ring-indigo-200">
-              <option>Jalan</option>
-              <option>Tiang</option>
-              <option>Jembatan</option>
-              <option>Kabel</option>
-              <option>Lainnya</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">Target Volume (m)</label>
-            <input id="targetVolume" type="number" step="0.01" placeholder="Masukkan target" required
-              class="w-full border rounded-lg p-2 focus:ring focus:ring-indigo-200" />
-          </div>
-          <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
-            Simpan Target
-          </button>
-        </form>
-        <div id="formStatus" class="mt-4 text-sm text-green-600 hidden">✅ Target berhasil disimpan!</div>
-      </div>
+    <section class="card">
+      <h2>📊 Grafik Batang per Kategori</h2>
+      <canvas id="categoryChart" height="120"></canvas>
     </section>
 
-    <!-- ===== DETAIL ===== -->
-    <section id="detailTab" class="tab hidden">
-      <div class="bg-white shadow-md rounded-lg p-6">
-        <h2 class="text-lg font-semibold mb-4">📋 Detail Progres</h2>
-        <p class="text-gray-500 text-sm">Fitur detail progres akan dikembangkan berikutnya (list laporan per kategori).</p>
-      </div>
+    <section id="detailTab" class="card" style="display:none;">
+      <h2>📋 Detail Progress</h2>
+      <table id="reportTable">
+        <thead>
+          <tr>
+            <th>Kategori</th>
+            <th>Pekerjaan</th>
+            <th>Volume</th>
+            <th>Material</th>
+            <th>Keterangan</th>
+            <th>Before</th>
+            <th>After</th>
+            <th>Petugas</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </section>
 
+    <section id="settargetTab" class="card" style="display:none;">
+      <h2>🎯 Set Target</h2>
+      <p>Fitur input target akan dikembangkan berikutnya.</p>
+    </section>
   </main>
 
-  <!-- FOOTER -->
-  <footer class="text-center text-xs py-4 text-gray-500">
-    © 2025 Dashboard Project - Backbone Lite
-  </footer>
+  <footer>© 2025 Dashboard Project - Backbone Lite</footer>
 
-  <!-- SCRIPT -->
   <script>
-    // === SUPABASE CONFIG ===
-    const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co"; // Ganti dengan URL kamu
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";                // Ganti dengan anon key kamu
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg"; // ganti dengan anon key dari Supabase
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function loadReports() {
-  const { data: reports, error } = await supabase.from("reports").select("*");
-  console.log("Reports loaded:", reports, error);
-
-  if (error) {
-    alert("Gagal memuat data: " + error.message);
-    return;
-  }
-
-  if (!reports || reports.length === 0) {
-    document.getElementById("dashboard").innerHTML = "Belum ada data laporan";
-    return;
-  }
-
-  renderDashboard(reports);
-  renderReportList(reports);
-}// simpan chart instance global
-
-    // === LOAD DASHBOARD ===
     async function loadDashboard() {
-      const { data: reports } = await supabase.from("reports").select("*");
+      const { data: reports, error } = await supabase.from("reports").select("*");
       const { data: targets } = await supabase.from("targets").select("*");
 
-      // Hitung total volume & target
-      const totalVolume = reports.reduce((sum, r) => sum + (parseFloat(r.volume_pekerjaan) || 0), 0);
-      const totalTarget = targets.reduce((sum, t) => sum + (parseFloat(t.target_volume) || 0), 0);
-      const percent = totalTarget > 0 ? ((totalVolume / totalTarget) * 100).toFixed(1) : 0;
+      if (error) {
+        console.error("Error loading reports:", error);
+        return;
+      }
 
-      document.getElementById("totalVolume").innerText = totalVolume.toLocaleString("id-ID") + " m";
+      renderDashboard(reports, targets);
+      renderTable(reports);
+      renderChart(reports);
+    }
+
+    function renderDashboard(reports, targets) {
+      const totalVolume = reports.reduce((sum, r) => sum + parseFloat(r.volume_pekerjaan || 0), 0);
+      const totalTarget = targets.reduce((sum, t) => sum + parseFloat(t.target_volume || 0), 0);
+      const percent = totalTarget ? ((totalVolume / totalTarget) * 100).toFixed(1) : 0;
+
+      document.getElementById("totalProgress").innerText = totalVolume.toLocaleString() + " m";
       document.getElementById("percentProgress").innerText = percent + "%";
+      document.getElementById("dayProgress").innerText = "2 / 60";
+    }
 
-      const startDate = moment(reports.length ? reports[0].created_at : moment());
-      const today = moment();
-      const day = today.diff(startDate, "days") + 1;
-      document.getElementById("dayProgress").innerText = `${day} / 60`;
-
-      // Group by kategori
-      const group = {};
-      categories.forEach(c => group[c] = 0);
+    function renderTable(reports) {
+      const tbody = document.querySelector("#reportTable tbody");
+      tbody.innerHTML = "";
       reports.forEach(r => {
-        const cat = categories.includes(r.category) ? r.category : "Lainnya";
-        group[cat] += parseFloat(r.volume_pekerjaan) || 0;
-      });
-
-      // Render grafik
-      const ctx = document.getElementById("chartCategory").getContext("2d");
-      if (chart) chart.destroy(); // hapus grafik lama
-      chart = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels: categories,
-          datasets: [{
-            label: "Volume per Kategori (m)",
-            data: categories.map(c => group[c]),
-            backgroundColor: [
-              "rgba(239,68,68,0.6)", "rgba(245,158,11,0.6)",
-              "rgba(16,185,129,0.6)", "rgba(59,130,246,0.6)", "rgba(107,114,128,0.6)"
-            ],
-            borderColor: [
-              "rgba(239,68,68,1)", "rgba(245,158,11,1)",
-              "rgba(16,185,129,1)", "rgba(59,130,246,1)", "rgba(107,114,128,1)"
-            ],
-            borderWidth: 1
-          }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.category}</td>
+          <td>${r.nama_pekerjaan}</td>
+          <td>${r.volume_pekerjaan}</td>
+          <td>${r.material}</td>
+          <td>${r.keterangan}</td>
+          <td><img src="${r.photo_before_url || ''}" /></td>
+          <td><img src="${r.photo_after_url || ''}" /></td>
+          <td>${r.telegram_name || '-'}</td>
+        `;
+        tbody.appendChild(tr);
       });
     }
 
-    // === SIMPAN TARGET ===
-    document.getElementById("targetForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const category = document.getElementById("category").value;
-      const targetVolume = parseFloat(document.getElementById("targetVolume").value);
+    function renderChart(reports) {
+      const ctx = document.getElementById("categoryChart").getContext("2d");
+      const grouped = reports.reduce((acc, r) => {
+        acc[r.category] = (acc[r.category] || 0) + parseFloat(r.volume_pekerjaan || 0);
+        return acc;
+      }, {});
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: Object.keys(grouped),
+          datasets: [{
+            label: "Volume Pekerjaan (m)",
+            data: Object.values(grouped),
+            backgroundColor: "#4b3efc"
+          }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
 
-      const { error } = await supabase.from("targets").upsert([{ category, target_volume: targetVolume }]);
-      const status = document.getElementById("formStatus");
-
-      if (!error) {
-        status.classList.remove("hidden");
-        status.textContent = "✅ Target berhasil disimpan!";
-        loadDashboard(); // refresh data
-        e.target.reset();
-        setTimeout(() => status.classList.add("hidden"), 3000);
-      } else {
-        status.classList.remove("hidden");
-        status.textContent = "❌ Gagal menyimpan target!";
-        status.classList.replace("text-green-600", "text-red-600");
-      }
-    });
-
-    // === TAB SWITCH ===
     function showTab(tab) {
-      document.querySelectorAll(".tab").forEach(t => t.classList.add("hidden"));
-      if (tab === "dashboard") document.getElementById("dashboardTab").classList.remove("hidden");
-      if (tab === "setTarget") document.getElementById("setTargetTab").classList.remove("hidden");
-      if (tab === "detail") document.getElementById("detailTab").classList.remove("hidden");
+      document.getElementById("dashboardTab").style.display = tab === "dashboard" ? "block" : "none";
+      document.getElementById("detailTab").style.display = tab === "detail" ? "block" : "none";
+      document.getElementById("settargetTab").style.display = tab === "settarget" ? "block" : "none";
+      document.querySelectorAll("nav a").forEach(a => a.classList.remove("active"));
+      document.querySelector(`nav a[onclick="showTab('${tab}')"]`).classList.add("active");
     }
 
     loadDashboard();
