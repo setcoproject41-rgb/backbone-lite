@@ -13,12 +13,12 @@
     nav button { background: #007bff; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold; }
     nav button:hover { background: #0056b3; }
     section { display: none; padding: 1.5rem; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    table th, table td { padding: 0.6rem; border: 1px solid #ddd; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+    table th, table td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; vertical-align: top; }
     table th { background: #007bff; color: white; }
     .active { display: block; }
     .card { background: white; padding: 1rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 1rem; }
-    input, select { padding: 0.6rem; margin: 0.3rem; border-radius: 5px; border: 1px solid #ccc; width: 90%; }
+    input, select { padding: 0.6rem; margin: 0.3rem 0; border-radius: 5px; border: 1px solid #ccc; width: 90%; }
     button.save { background: #28a745; margin-top: 1rem; }
     button.save:hover { background: #1e7e34; }
   </style>
@@ -41,10 +41,12 @@
 
   <section id="setTarget">
     <div class="card">
-      <h3>Set Target Pekerjaan</h3>
+      <h3>🎯 Set Target Pekerjaan</h3>
       <form id="targetForm">
-        <input type="text" id="targetCategory" placeholder="Nama Kategori" required>
-        <input type="number" id="targetVolume" placeholder="Target Volume" required>
+        <label>Kategori:</label><br>
+        <select id="targetCategory" required></select><br>
+        <label>Target Volume:</label><br>
+        <input type="number" id="targetVolume" placeholder="Masukkan target volume" required><br>
         <button type="submit" class="save">Simpan Target</button>
       </form>
       <div id="targetList"></div>
@@ -60,15 +62,19 @@
 
   <section id="detailProgres">
     <div class="card">
-      <h3>📋 Data Laporan Pekerjaan</h3>
+      <h3>📋 Detail Progres Pekerjaan</h3>
       <table id="reportsTable">
         <thead>
           <tr>
+            <th>ID</th>
             <th>Kategori</th>
             <th>Nama Pekerjaan</th>
             <th>Volume</th>
             <th>Material</th>
             <th>Keterangan</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Telegram</th>
             <th>Foto</th>
           </tr>
         </thead>
@@ -78,7 +84,7 @@
   </section>
 
   <script>
-    const supabaseUrl = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
+    const supabaseUrl = "https://zpcuzrifbisrcjtqgqyv.supabase.co
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
     const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
@@ -87,53 +93,76 @@
       document.getElementById(tabId).classList.add("active");
     }
 
-    // ================= DASHBOARD ===================
+    // ================= LOAD DASHBOARD ===================
     async function loadDashboard() {
       const { data: reports } = await supabase.from("reports").select("*");
       const { data: targets } = await supabase.from("targets").select("*");
 
       if (!reports || !targets) return;
 
-      const progress = targets.map(t => {
-        const total = reports.filter(r => r.category === t.category)
-                             .reduce((sum, r) => sum + (r.volume_pekerjaan || 0), 0);
-        const percent = ((total / t.target_volume) * 100).toFixed(1);
-        return { category: t.category, progress: percent };
+      // Hitung total volume per kategori
+      const totals = {};
+      reports.forEach(r => {
+        if (!totals[r.category]) totals[r.category] = 0;
+        totals[r.category] += Number(r.volume_pekerjaan) || 0;
+      });
+
+      // Gabungkan dengan target
+      const categories = targets.map(t => t.category);
+      const progress = categories.map(cat => {
+        const total = totals[cat] || 0;
+        const target = Number(targets.find(t => t.category === cat)?.target_volume || 1);
+        return ((total / target) * 100).toFixed(1);
       });
 
       const ctx = document.getElementById("chartProgress").getContext("2d");
       new Chart(ctx, {
         type: "bar",
         data: {
-          labels: progress.map(p => p.category),
-          datasets: [{
-            label: "% Capaian Target",
-            data: progress.map(p => p.progress),
-            backgroundColor: "#007bff"
-          }]
+          labels: categories,
+          datasets: [
+            {
+              label: "% Capaian Target",
+              data: progress,
+              backgroundColor: "#007bff"
+            }
+          ]
         },
-        options: { scales: { y: { beginAtZero: true, max: 100 } } }
+        options: {
+          scales: { y: { beginAtZero: true, max: 100 } },
+          plugins: {
+            legend: { display: false }
+          }
+        }
       });
     }
 
-    // ================= TARGET ===================
+    // ================= LOAD TARGETS ===================
     async function loadTargets() {
       const { data } = await supabase.from("targets").select("*");
       const list = document.getElementById("targetList");
       list.innerHTML = data.map(t => `<p><strong>${t.category}</strong>: ${t.target_volume}</p>`).join("");
     }
 
+    // ================= DROPDOWN CATEGORY ===================
+    async function loadCategoryDropdown() {
+      const { data } = await supabase.from("reports").select("category");
+      const uniqueCats = [...new Set(data.map(d => d.category))];
+      const dropdown = document.getElementById("targetCategory");
+      dropdown.innerHTML = uniqueCats.map(c => `<option value="${c}">${c}</option>`).join("");
+    }
+
     document.getElementById("targetForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const category = document.getElementById("targetCategory").value.trim();
+      const category = document.getElementById("targetCategory").value;
       const volume = parseFloat(document.getElementById("targetVolume").value);
       await supabase.from("targets").upsert([{ category, target_volume: volume }]);
-      alert("Target berhasil disimpan!");
+      alert("✅ Target berhasil disimpan!");
       loadTargets();
-      document.getElementById("targetForm").reset();
+      loadDashboard();
     });
 
-    // ================= BOQ ===================
+    // ================= LOAD BOQ ===================
     async function loadBOQ() {
       const { data, error } = await supabase.storage.from("templates").list("", { limit: 20 });
       const list = document.getElementById("boqList");
@@ -143,17 +172,21 @@
       ).join("");
     }
 
-    // ================= DETAIL PROGRES ===================
+    // ================= LOAD REPORTS ===================
     async function loadReports() {
       const { data } = await supabase.from("reports").select("*");
       const tbody = document.querySelector("#reportsTable tbody");
       tbody.innerHTML = data.map(r => `
         <tr>
+          <td>${r.id}</td>
           <td>${r.category}</td>
           <td>${r.nama_pekerjaan}</td>
           <td>${r.volume_pekerjaan}</td>
           <td>${r.material}</td>
           <td>${r.keterangan || "-"}</td>
+          <td>${r.latitude || "-"}</td>
+          <td>${r.longitude || "-"}</td>
+          <td>${r.telegram_username || "-"}</td>
           <td><a href="${r.photo_url}" target="_blank">📷</a></td>
         </tr>`).join("");
     }
@@ -161,8 +194,5 @@
     // ================= INIT ===================
     loadDashboard();
     loadTargets();
-    loadBOQ();
-    loadReports();
-  </script>
-</body>
-</html>
+    loadCategoryDropdown();
+    loa
