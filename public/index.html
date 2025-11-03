@@ -3,233 +3,191 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>📊 Dashboard Pelaporan - Kurva S</title>
+  <title>Dashboard Project</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f5f6fa;
-    }
-    header {
-      background-color: #007bff;
-      color: white;
-      text-align: center;
-      padding: 12px;
-      font-size: 1.2em;
-      font-weight: bold;
-      letter-spacing: 0.5px;
-    }
-    nav {
-      display: flex;
-      justify-content: center;
-      background: #eee;
-      padding: 10px;
-      border-bottom: 1px solid #ccc;
-    }
-    button {
-      margin: 5px;
-      padding: 8px 15px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    button:hover {
-      background-color: #0056b3;
-      transform: scale(1.03);
-    }
-    .content {
-      background: white;
-      margin: 20px;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      padding: 8px;
-      border: 1px solid #ccc;
-      text-align: left;
-      font-size: 0.9em;
-    }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
+<body class="bg-gray-100 text-gray-800">
 
-<body>
-  <header>📊 Dashboard Pelaporan - Kurva S</header>
+  <!-- HEADER -->
+  <header class="bg-indigo-600 text-white py-4 shadow-md">
+    <div class="max-w-5xl mx-auto flex justify-between items-center px-4">
+      <h1 class="text-xl font-bold">📈 Dashboard Kemajuan Project</h1>
+      <nav class="space-x-4 text-sm">
+        <button class="hover:underline" onclick="showTab('dashboard')">Dashboard</button>
+        <button class="hover:underline" onclick="showTab('setTarget')">Set Target</button>
+        <button class="hover:underline" onclick="showTab('detail')">Detail Progress</button>
+      </nav>
+    </div>
+  </header>
 
-  <nav>
-    <button onclick="showTab('dashboard')">Dashboard</button>
-    <button onclick="showTab('settarget')">Set Target</button>
-    <button onclick="showTab('boq')">BOQ</button>
-    <button onclick="showTab('detail')">Detail Progres</button>
-  </nav>
+  <!-- MAIN CONTENT -->
+  <main class="max-w-5xl mx-auto p-6 space-y-6">
+    
+    <!-- ===== DASHBOARD ===== -->
+    <section id="dashboardTab" class="tab">
+      <div class="bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-lg font-semibold mb-4">📊 Ringkasan Kemajuan</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+          <div class="bg-indigo-50 rounded-lg p-4">
+            <p class="text-gray-500">Total Progress</p>
+            <p id="totalVolume" class="text-2xl font-bold">0 m</p>
+          </div>
+          <div class="bg-indigo-50 rounded-lg p-4">
+            <p class="text-gray-500">% Capaian</p>
+            <p id="percentProgress" class="text-2xl font-bold">0%</p>
+          </div>
+          <div class="bg-indigo-50 rounded-lg p-4">
+            <p class="text-gray-500">Hari ke-</p>
+            <p id="dayProgress" class="text-2xl font-bold">0 / 60</p>
+          </div>
+        </div>
+      </div>
 
-  <div id="content" class="content"></div>
+      <!-- GRAFIK -->
+      <div class="bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-lg font-semibold mb-4">📈 Grafik Batang per Kategori</h2>
+        <canvas id="chartCategory" height="100"></canvas>
+      </div>
+    </section>
 
+    <!-- ===== SET TARGET ===== -->
+    <section id="setTargetTab" class="tab hidden">
+      <div class="bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-lg font-semibold mb-4">🎯 Set Target Volume per Kategori</h2>
+        <form id="targetForm" class="space-y-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Pilih Kategori</label>
+            <select id="category" class="w-full border rounded-lg p-2 focus:ring focus:ring-indigo-200">
+              <option>Jalan</option>
+              <option>Tiang</option>
+              <option>Jembatan</option>
+              <option>Kabel</option>
+              <option>Lainnya</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Target Volume (m)</label>
+            <input id="targetVolume" type="number" step="0.01" placeholder="Masukkan target" required
+              class="w-full border rounded-lg p-2 focus:ring focus:ring-indigo-200" />
+          </div>
+          <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+            Simpan Target
+          </button>
+        </form>
+        <div id="formStatus" class="mt-4 text-sm text-green-600 hidden">✅ Target berhasil disimpan!</div>
+      </div>
+    </section>
+
+    <!-- ===== DETAIL ===== -->
+    <section id="detailTab" class="tab hidden">
+      <div class="bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-lg font-semibold mb-4">📋 Detail Progres</h2>
+        <p class="text-gray-500 text-sm">Fitur detail progres akan dikembangkan berikutnya (list laporan per kategori).</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="text-center text-xs py-4 text-gray-500">
+    © 2025 Dashboard Project - Backbone Lite
+  </footer>
+
+  <!-- SCRIPT -->
   <script>
-    // ---------- STEP 1: Inisialisasi Supabase ----------
-    const supabaseUrl = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    // === SUPABASE CONFIG ===
+    const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co"; // Ganti dengan URL kamu
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";                // Ganti dengan anon key kamu
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ---------- STEP 2: Navigasi ----------
-    function showTab(tab) {
-      if (tab === 'dashboard') loadDashboard();
-      else if (tab === 'settarget') loadSetTarget();
-      else if (tab === 'boq') loadBOQ();
-      else if (tab === 'detail') loadDetail();
-    }
+    const categories = ["Jalan", "Tiang", "Jembatan", "Kabel", "Lainnya"];
+    let chart; // simpan chart instance global
 
-    // ---------- STEP 3: DASHBOARD (Kurva S) ----------
+    // === LOAD DASHBOARD ===
     async function loadDashboard() {
-      document.getElementById("content").innerHTML = `
-        <h3>Grafik Kurva-S Progres Lapangan</h3>
-        <canvas id="kurvaSChart"></canvas>
-      `;
+      const { data: reports } = await supabase.from("reports").select("*");
+      const { data: targets } = await supabase.from("targets").select("*");
 
-      const { data: reports, error: e1 } = await supabase.from("reports").select("*");
-      const { data: targets, error: e2 } = await supabase.from("targets").select("*");
-      if (e1 || e2) return alert("❌ Gagal mengambil data.");
+      // Hitung total volume & target
+      const totalVolume = reports.reduce((sum, r) => sum + (parseFloat(r.volume_pekerjaan) || 0), 0);
+      const totalTarget = targets.reduce((sum, t) => sum + (parseFloat(t.target_volume) || 0), 0);
+      const percent = totalTarget > 0 ? ((totalVolume / totalTarget) * 100).toFixed(1) : 0;
 
-      if (!reports?.length || !targets?.length)
-        return (document.getElementById("content").innerHTML += "<p>Tidak ada data untuk ditampilkan.</p>");
+      document.getElementById("totalVolume").innerText = totalVolume.toLocaleString("id-ID") + " m";
+      document.getElementById("percentProgress").innerText = percent + "%";
 
-      const totalTarget = targets.reduce((a, b) => a + (b.target_volume || 0), 0);
-      const progresByTanggal = {};
+      const startDate = moment(reports.length ? reports[0].created_at : moment());
+      const today = moment();
+      const day = today.diff(startDate, "days") + 1;
+      document.getElementById("dayProgress").innerText = `${day} / 60`;
 
+      // Group by kategori
+      const group = {};
+      categories.forEach(c => group[c] = 0);
       reports.forEach(r => {
-        const tanggal = new Date(r.tanggal || r.created_at).toISOString().split("T")[0];
-        progresByTanggal[tanggal] = (progresByTanggal[tanggal] || 0) + (parseFloat(r.volume_pekerjaan) || 0);
+        const cat = categories.includes(r.category) ? r.category : "Lainnya";
+        group[cat] += parseFloat(r.volume_pekerjaan) || 0;
       });
 
-      const tanggalSorted = Object.keys(progresByTanggal).sort();
-      const kumulatif = [];
-      let total = 0;
-      tanggalSorted.forEach(tgl => {
-        total += progresByTanggal[tgl];
-        kumulatif.push((total / totalTarget) * 100);
-      });
-
-      const ctx = document.getElementById("kurvaSChart").getContext("2d");
-      new Chart(ctx, {
-        type: "line",
+      // Render grafik
+      const ctx = document.getElementById("chartCategory").getContext("2d");
+      if (chart) chart.destroy(); // hapus grafik lama
+      chart = new Chart(ctx, {
+        type: "bar",
         data: {
-          labels: tanggalSorted,
-          datasets: [
-            {
-              label: "Capaian Kumulatif (%)",
-              data: kumulatif,
-              borderColor: "#28a745",
-              backgroundColor: "rgba(40,167,69,0.2)",
-              fill: true,
-              tension: 0.4,
-              pointRadius: 4,
-              pointBackgroundColor: "#155724"
-            }
-          ]
+          labels: categories,
+          datasets: [{
+            label: "Volume per Kategori (m)",
+            data: categories.map(c => group[c]),
+            backgroundColor: [
+              "rgba(239,68,68,0.6)", "rgba(245,158,11,0.6)",
+              "rgba(16,185,129,0.6)", "rgba(59,130,246,0.6)", "rgba(107,114,128,0.6)"
+            ],
+            borderColor: [
+              "rgba(239,68,68,1)", "rgba(245,158,11,1)",
+              "rgba(16,185,129,1)", "rgba(59,130,246,1)", "rgba(107,114,128,1)"
+            ],
+            borderWidth: 1
+          }]
         },
-        options: {
-          responsive: true,
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 100,
-              title: { display: true, text: "Progress (%)" }
-            },
-            x: {
-              title: { display: true, text: "Tanggal" }
-            }
-          },
-          plugins: {
-            legend: { position: "bottom" },
-            tooltip: { mode: "index", intersect: false }
-          }
-        }
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
       });
     }
 
-    // ---------- STEP 4: SET TARGET ----------
-    async function loadSetTarget() {
-      document.getElementById("content").innerHTML = `
-        <h3>Set Target Pekerjaan</h3>
-        <label>Kategori:</label>
-        <select id="category">
-          <option value="Jalan">Jalan</option>
-          <option value="Tiang">Tiang</option>
-          <option value="Jembatan">Jembatan</option>
-          <option value="Kabel">Kabel</option>
-          <option value="Galian">Galian</option>
-          <option value="Lain-Lain">Lain-Lain</option>
-        </select><br><br>
-        <label>Target Volume:</label>
-        <input type="number" id="target_volume" /><br><br>
-        <button onclick="saveTarget()">Simpan Target</button>
-      `;
-    }
-
-    async function saveTarget() {
+    // === SIMPAN TARGET ===
+    document.getElementById("targetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
       const category = document.getElementById("category").value;
-      const target_volume = parseFloat(document.getElementById("target_volume").value);
-      if (!category || !target_volume) return alert("Isi semua kolom!");
-      const { error } = await supabase.from("targets").insert([{ category, target_volume }]);
-      if (error) alert("❌ Gagal menyimpan target: " + error.message);
-      else alert("✅ Target berhasil disimpan!");
+      const targetVolume = parseFloat(document.getElementById("targetVolume").value);
+
+      const { error } = await supabase.from("targets").upsert([{ category, target_volume: targetVolume }]);
+      const status = document.getElementById("formStatus");
+
+      if (!error) {
+        status.classList.remove("hidden");
+        status.textContent = "✅ Target berhasil disimpan!";
+        loadDashboard(); // refresh data
+        e.target.reset();
+        setTimeout(() => status.classList.add("hidden"), 3000);
+      } else {
+        status.classList.remove("hidden");
+        status.textContent = "❌ Gagal menyimpan target!";
+        status.classList.replace("text-green-600", "text-red-600");
+      }
+    });
+
+    // === TAB SWITCH ===
+    function showTab(tab) {
+      document.querySelectorAll(".tab").forEach(t => t.classList.add("hidden"));
+      if (tab === "dashboard") document.getElementById("dashboardTab").classList.remove("hidden");
+      if (tab === "setTarget") document.getElementById("setTargetTab").classList.remove("hidden");
+      if (tab === "detail") document.getElementById("detailTab").classList.remove("hidden");
     }
 
-    // ---------- STEP 5: BOQ ----------
-    async function loadBOQ() {
-      const { data, error } = await supabase.storage.from("templates").list();
-      if (error) return alert("❌ Gagal memuat file BOQ.");
-      const files = data.map(f =>
-        `<li><a href="${supabase.storage.from('templates').getPublicUrl(f.name).data.publicUrl}" target="_blank">${f.name}</a></li>`
-      ).join("");
-      document.getElementById("content").innerHTML = `<h3>Daftar File BOQ</h3><ul>${files}</ul>`;
-    }
-
-    // ---------- STEP 6: DETAIL PROGRES ----------
-    async function loadDetail() {
-      const { data, error } = await supabase.from("reports").select("*");
-      if (error) return alert("❌ Gagal memuat data progres.");
-      const rows = data.map(r => `
-        <tr>
-          <td>${r.category}</td>
-          <td>${r.nama_pekerjaan || "-"}</td>
-          <td>${r.volume_pekerjaan || "-"}</td>
-          <td>${r.material || "-"}</td>
-          <td>${r.keterangan || "-"}</td>
-          <td><a href="${r.photo_before_url || "#"}" target="_blank">Before</a></td>
-          <td><a href="${r.photo_after_url || "#"}" target="_blank">After</a></td>
-        </tr>
-      `).join("");
-      document.getElementById("content").innerHTML = `
-        <h3>Detail Progres Lapangan</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Kategori</th>
-              <th>Pekerjaan</th>
-              <th>Volume</th>
-              <th>Material</th>
-              <th>Keterangan</th>
-              <th>Before</th>
-              <th>After</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>`;
-    }
-
-    // ---------- STEP 7: MUAT AWAL ----------
-    showTab("dashboard");
+    loadDashboard();
   </script>
 </body>
 </html>
