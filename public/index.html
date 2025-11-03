@@ -1,253 +1,168 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Pelaporan</title>
-
-  <!-- Supabase & Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="icon" href="data:," />
-
   <style>
-    body {
-      margin: 0;
-      font-family: "Poppins", sans-serif;
-      background-color: #0f172a;
-      color: #f1f5f9;
-    }
-    header {
-      background-color: #1e293b;
-      padding: 15px 25px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    nav button {
-      background: none;
-      border: none;
-      color: #cbd5e1;
-      font-size: 16px;
-      margin: 0 10px;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-    nav button:hover,
-    nav button.active {
-      color: #38bdf8;
-      font-weight: 600;
-    }
-    main {
-      padding: 30px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #1e293b;
-      border-radius: 10px;
-      overflow: hidden;
-      margin-top: 20px;
-    }
-    th,
-    td {
-      border-bottom: 1px solid #334155;
-      padding: 10px;
-      text-align: left;
-    }
-    th {
-      background-color: #334155;
-    }
-    canvas {
-      margin-top: 40px;
-      background: #1e293b;
-      border-radius: 10px;
-      padding: 20px;
-    }
-    input,
-    select {
-      background: #1e293b;
-      border: 1px solid #334155;
-      color: #f1f5f9;
-      padding: 8px;
-      border-radius: 6px;
-      width: 100%;
-      margin-bottom: 10px;
-    }
-    button.submit {
-      background: #38bdf8;
-      border: none;
-      color: #0f172a;
-      font-weight: 600;
-      padding: 10px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f5f6fa; color: #333; }
+    header { background: #007bff; color: #fff; padding: 1rem; text-align: center; font-weight: bold; }
+    nav { display: flex; justify-content: space-around; background: #f1f1f1; padding: 0.8rem; position: sticky; top: 0; }
+    nav button { background: #007bff; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold; }
+    nav button:hover { background: #0056b3; }
+    section { display: none; padding: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    table th, table td { padding: 0.6rem; border: 1px solid #ddd; }
+    table th { background: #007bff; color: white; }
+    .active { display: block; }
+    .card { background: white; padding: 1rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+    input, select { padding: 0.6rem; margin: 0.3rem; border-radius: 5px; border: 1px solid #ccc; width: 90%; }
+    button.save { background: #28a745; margin-top: 1rem; }
+    button.save:hover { background: #1e7e34; }
   </style>
 </head>
-
 <body>
-  <header>
-    <h2>📊 Dashboard Pelaporan</h2>
-    <nav>
-      <button id="homeBtn" class="active">Home</button>
-      <button id="targetBtn">Input Target</button>
-      <button id="dashboardBtn">Dashboard</button>
-      <button id="laporanBtn">Laporan</button>
-      <button id="accountBtn">Account</button>
-    </nav>
-  </header>
+  <header>📊 Dashboard Pelaporan</header>
 
-  <main id="content">
-    <h3>Selamat datang di Dashboard</h3>
-    <p>Klik menu di atas untuk melihat data dan grafik laporan.</p>
-  </main>
+  <nav>
+    <button onclick="showTab('dashboard')">Dashboard</button>
+    <button onclick="showTab('setTarget')">Set Target</button>
+    <button onclick="showTab('boq')">BOQ</button>
+    <button onclick="showTab('detailProgres')">Detail Progres</button>
+  </nav>
+
+  <section id="dashboard" class="active">
+    <div class="card">
+      <canvas id="chartProgress"></canvas>
+    </div>
+  </section>
+
+  <section id="setTarget">
+    <div class="card">
+      <h3>Set Target Pekerjaan</h3>
+      <form id="targetForm">
+        <input type="text" id="targetCategory" placeholder="Nama Kategori" required>
+        <input type="number" id="targetVolume" placeholder="Target Volume" required>
+        <button type="submit" class="save">Simpan Target</button>
+      </form>
+      <div id="targetList"></div>
+    </div>
+  </section>
+
+  <section id="boq">
+    <div class="card">
+      <h3>📁 File Template BOQ</h3>
+      <ul id="boqList"></ul>
+    </div>
+  </section>
+
+  <section id="detailProgres">
+    <div class="card">
+      <h3>📋 Data Laporan Pekerjaan</h3>
+      <table id="reportsTable">
+        <thead>
+          <tr>
+            <th>Kategori</th>
+            <th>Nama Pekerjaan</th>
+            <th>Volume</th>
+            <th>Material</th>
+            <th>Keterangan</th>
+            <th>Foto</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
 
   <script>
-    // ====== 1. Inisialisasi Supabase ======
-    const SUPABASE_URL = 'https://zpcuzrifbisrcjtqgqyv.supabase.co'; // Ganti
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg'; // Ganti
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabaseUrl = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    const content = document.getElementById("content");
-    const buttons = document.querySelectorAll("nav button");
-
-    buttons.forEach(btn => {
-      btn.addEventListener("click", () => {
-        buttons.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        loadPage(btn.id);
-      });
-    });
-
-    // ====== 2. Fungsi Halaman ======
-    async function loadPage(page) {
-      if (page === "homeBtn") {
-        content.innerHTML = `
-          <h3>🏠 Home</h3>
-          <p>Selamat datang di sistem pelaporan proyek. Gunakan menu untuk navigasi.</p>`;
-      }
-
-      if (page === "targetBtn") {
-        content.innerHTML = `
-          <h3>🎯 Input Target Pekerjaan</h3>
-          <form id="targetForm">
-            <label>Kategori</label>
-            <input type="text" id="category" placeholder="Masukkan kategori..." required>
-            <label>Target Volume</label>
-            <input type="number" id="target_volume" placeholder="Masukkan target volume..." required>
-            <button type="submit" class="submit">Simpan Target</button>
-          </form>
-          <div id="targetStatus"></div>`;
-
-        document.getElementById("targetForm").addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const category = document.getElementById("category").value;
-          const target_volume = document.getElementById("target_volume").value;
-
-          const { error } = await supabase.from("targets").insert([{ category, target_volume }]);
-          const statusDiv = document.getElementById("targetStatus");
-
-          if (error) {
-            statusDiv.innerHTML = `<p style="color:red;">Gagal menyimpan: ${error.message}</p>`;
-          } else {
-            statusDiv.innerHTML = `<p style="color:lightgreen;">✅ Target berhasil disimpan!</p>`;
-            e.target.reset();
-          }
-        });
-      }
-
-      if (page === "dashboardBtn") {
-        content.innerHTML = `<h3>📈 Dashboard Kinerja</h3><canvas id="chart" height="120"></canvas>`;
-
-        const { data: reports } = await supabase.from("reports").select("category, volume_pekerjaan");
-        const { data: targets } = await supabase.from("targets").select("*");
-
-        if (!reports || !targets) {
-          content.innerHTML += `<p style="color:red;">Gagal memuat data.</p>`;
-          return;
-        }
-
-        const categories = targets.map(t => t.category);
-        const targetVolumes = targets.map(t => parseFloat(t.target_volume) || 0);
-        const actualVolumes = categories.map(cat => {
-          const total = reports
-            .filter(r => r.category === cat)
-            .reduce((sum, r) => sum + (parseFloat(r.volume_pekerjaan) || 0), 0);
-          return total;
-        });
-
-        new Chart(document.getElementById("chart"), {
-          type: "bar",
-          data: {
-            labels: categories,
-            datasets: [
-              { label: "Target Volume", data: targetVolumes, backgroundColor: "#38bdf8" },
-              { label: "Realisasi Volume", data: actualVolumes, backgroundColor: "#22c55e" }
-            ]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: { beginAtZero: true, ticks: { color: "#f1f5f9" } },
-              x: { ticks: { color: "#f1f5f9" } }
-            },
-            plugins: { legend: { labels: { color: "#f1f5f9" } } }
-          }
-        });
-      }
-
-      if (page === "laporanBtn") {
-        content.innerHTML = `<h3>📋 Data Laporan</h3><p>Menampilkan semua laporan dari Supabase.</p>`;
-        const { data, error } = await supabase.from("reports").select("*");
-        if (error) {
-          content.innerHTML += `<p style="color:red;">Gagal memuat data laporan: ${error.message}</p>`;
-          return;
-        }
-
-        let html = `
-          <table>
-            <thead>
-              <tr>
-                <th>Nama Pekerjaan</th>
-                <th>Kategori</th>
-                <th>Volume</th>
-                <th>Material</th>
-                <th>Keterangan</th>
-                <th>Foto</th>
-              </tr>
-            </thead>
-            <tbody>`;
-        data.forEach(row => {
-          html += `
-            <tr>
-              <td>${row.nama_pekerjaan || "-"}</td>
-              <td>${row.category || "-"}</td>
-              <td>${row.volume_pekerjaan || "-"}</td>
-              <td>${row.material || "-"}</td>
-              <td>${row.keterangan || "-"}</td>
-              <td><a href="${row.photo_after_url || "#"}" target="_blank">📸</a></td>
-            </tr>`;
-        });
-        html += `</tbody></table>`;
-        content.innerHTML += html;
-      }
-
-      if (page === "accountBtn") {
-        content.innerHTML = `
-          <h3>👤 Akun Pengguna</h3>
-          <p>Integrasi Telegram ID dan Username dari data Supabase.</p>
-          <h4>📁 Storage Aktif:</h4>
-          <ul>
-            <li>survey_photos</li>
-            <li>templates</li>
-          </ul>`;
-      }
+    function showTab(tabId) {
+      document.querySelectorAll("section").forEach(sec => sec.classList.remove("active"));
+      document.getElementById(tabId).classList.add("active");
     }
 
-    // ====== 3. Default Page ======
-    loadPage("homeBtn");
+    // ================= DASHBOARD ===================
+    async function loadDashboard() {
+      const { data: reports } = await supabase.from("reports").select("*");
+      const { data: targets } = await supabase.from("targets").select("*");
+
+      if (!reports || !targets) return;
+
+      const progress = targets.map(t => {
+        const total = reports.filter(r => r.category === t.category)
+                             .reduce((sum, r) => sum + (r.volume_pekerjaan || 0), 0);
+        const percent = ((total / t.target_volume) * 100).toFixed(1);
+        return { category: t.category, progress: percent };
+      });
+
+      const ctx = document.getElementById("chartProgress").getContext("2d");
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: progress.map(p => p.category),
+          datasets: [{
+            label: "% Capaian Target",
+            data: progress.map(p => p.progress),
+            backgroundColor: "#007bff"
+          }]
+        },
+        options: { scales: { y: { beginAtZero: true, max: 100 } } }
+      });
+    }
+
+    // ================= TARGET ===================
+    async function loadTargets() {
+      const { data } = await supabase.from("targets").select("*");
+      const list = document.getElementById("targetList");
+      list.innerHTML = data.map(t => `<p><strong>${t.category}</strong>: ${t.target_volume}</p>`).join("");
+    }
+
+    document.getElementById("targetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const category = document.getElementById("targetCategory").value.trim();
+      const volume = parseFloat(document.getElementById("targetVolume").value);
+      await supabase.from("targets").upsert([{ category, target_volume: volume }]);
+      alert("Target berhasil disimpan!");
+      loadTargets();
+      document.getElementById("targetForm").reset();
+    });
+
+    // ================= BOQ ===================
+    async function loadBOQ() {
+      const { data, error } = await supabase.storage.from("templates").list("", { limit: 20 });
+      const list = document.getElementById("boqList");
+      if (error) return (list.innerHTML = "<p>Gagal memuat file.</p>");
+      list.innerHTML = data.map(f =>
+        `<li><a href="${supabase.storage.from('templates').getPublicUrl(f.name).data.publicUrl}" target="_blank">${f.name}</a></li>`
+      ).join("");
+    }
+
+    // ================= DETAIL PROGRES ===================
+    async function loadReports() {
+      const { data } = await supabase.from("reports").select("*");
+      const tbody = document.querySelector("#reportsTable tbody");
+      tbody.innerHTML = data.map(r => `
+        <tr>
+          <td>${r.category}</td>
+          <td>${r.nama_pekerjaan}</td>
+          <td>${r.volume_pekerjaan}</td>
+          <td>${r.material}</td>
+          <td>${r.keterangan || "-"}</td>
+          <td><a href="${r.photo_url}" target="_blank">📷</a></td>
+        </tr>`).join("");
+    }
+
+    // ================= INIT ===================
+    loadDashboard();
+    loadTargets();
+    loadBOQ();
+    loadReports();
   </script>
 </body>
 </html>
