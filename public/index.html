@@ -125,20 +125,22 @@
 <section id="detailTab" class="card" style="display:none;">
   <h2>📋 Detail Progress</h2>
   <table id="reportTable">
-    <thead>
-      <tr>
-        <th>Kategori</th>
-        <th>Pekerjaan</th>
-        <th>Volume</th>
-        <th>Material</th>
-        <th>Keterangan</th>
-        <th>Before</th>
-        <th>After</th>
-        <th>Petugas</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <thead>
+    <tr>
+      <th>Waktu</th>
+      <th>Kategori</th>
+      <th>Pekerjaan</th>
+      <th>Volume</th>
+      <th>Material</th>
+      <th>Keterangan</th>
+      <th>Before</th>
+      <th>After</th>
+      <th>Lokasi</th>
+      <th>Petugas</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 </section>
 
 <!-- SET TARGET -->
@@ -197,24 +199,33 @@
 
     // === Tabel ===
     function renderTable(reports) {
-      const tbody = document.querySelector("#reportTable tbody");
-      tbody.innerHTML = "";
-      reports.forEach(r => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.category || "-"}</td>
-          <td>${r.nama_pekerjaan || "-"}</td>
-          <td>${r.volume_pekerjaan || "-"}</td>
-          <td>${r.material || "-"}</td>
-          <td>${r.keterangan || "-"}</td>
-          <td><img src="${r.photo_before_url || ""}" alt="-" /></td>
-          <td><img src="${r.photo_after_url || ""}" alt="-" /></td>
-          <td>${r.telegram_name || "-"}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+  const tbody = document.querySelector("#reportTable tbody");
+  tbody.innerHTML = "";
 
+  reports.forEach(r => {
+    const waktu = r.created_at
+      ? new Date(r.created_at).toLocaleString("id-ID")
+      : "-";
+    const lokasi = (r.latitude && r.longitude)
+      ? `<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">📍 Lihat</a>`
+      : "-";
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${waktu}</td>
+      <td>${r.category || "-"}</td>
+      <td>${r.nama_pekerjaan || "-"}</td>
+      <td>${r.volume_pekerjaan || 0}</td>
+      <td>${r.material || "-"}</td>
+      <td>${r.keterangan || "-"}</td>
+      <td><img src="${r.photo_before_url || ''}" /></td>
+      <td><img src="${r.photo_after_url || ''}" /></td>
+      <td>${lokasi}</td>
+      <td>${r.telegram_name || '-'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
     // === Grafik ===
     let chartInstance;
     function renderChart(reports) {
