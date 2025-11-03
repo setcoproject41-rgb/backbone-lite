@@ -1,119 +1,32 @@
-<!DOCTYPE html>
-<html lang="id">
+Adi Rezky, [03/11/2025 10:33]
+<!DOCTYPE html><html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>📊 Dashboard Pelaporan</title>
+  <title>📊 Dashboard Pelaporan + Target</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body {
-      font-family: "Inter", "Segoe UI", sans-serif;
-      background-color: #f3f4f6;
-      margin: 0;
-      color: #333;
-    }
-    header {
-      background-color: #1e40af;
-      color: white;
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+    body { font-family: "Inter", "Segoe UI", sans-serif; background-color: #f3f4f6; margin: 0; color: #333; }
+    header { background-color: #1e40af; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
     header h1 { font-size: 20px; margin: 0; font-weight: 600; }
-    nav button {
-      background: transparent;
-      border: none;
-      color: #dbeafe;
-      font-weight: 600;
-      cursor: pointer;
-      margin: 0 10px;
-      font-size: 14px;
-      padding-bottom: 4px;
-      border-bottom: 2px solid transparent;
-    }
-    nav button.active {
-      color: white;
-      border-bottom: 2px solid white;
-    }
-
-    section {
-      display: none;
-      padding: 24px;
-      animation: fadeIn 0.3s ease;
-    }
+    nav button { background: transparent; border: none; color: #dbeafe; font-weight: 600; cursor: pointer; margin: 0 10px; font-size: 14px; padding-bottom: 4px; border-bottom: 2px solid transparent; }
+    nav button.active { color: white; border-bottom: 2px solid white; }
+    section { display: none; padding: 24px; animation: fadeIn 0.3s ease; }
     section.active { display: block; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .card {
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
-    th, td {
-      padding: 10px;
-      border-bottom: 1px solid #eee;
-      font-size: 14px;
-    }
-    th {
-      background-color: #f9fafb;
-      text-align: left;
-    }
-    img {
-      width: 90px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    select, input[type=file], button.upload-btn {
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      margin-top: 6px;
-      font-size: 14px;
-    }
-    .upload-btn {
-      background: #1e40af;
-      color: white;
-      cursor: pointer;
-      border: none;
-      transition: background 0.2s;
-    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .card { background: white; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    th, td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
+    th { background-color: #f9fafb; text-align: left; }
+    img { width: 90px; border-radius: 6px; border: 1px solid #ccc; }
+    select, input[type=file], input[type=number], button.upload-btn { padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-top: 6px; font-size: 14px; }
+    .upload-btn { background: #1e40af; color: white; cursor: pointer; border: none; transition: background 0.2s; }
     .upload-btn:hover { background: #2563eb; }
-
-    .filter {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
+    .filter { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
     .filter label { font-weight: 500; }
-
-    footer {
-      text-align: center;
-      padding: 15px;
-      background: #e5e7eb;
-      font-size: 13px;
-      color: #555;
-    }
+    footer { text-align: center; padding: 15px; background: #e5e7eb; font-size: 13px; color: #555; }
   </style>
 </head>
 <body>
@@ -123,11 +36,9 @@
       <button id="tab1" class="active">Dashboard</button>
       <button id="tab2">Upload Template</button>
       <button id="tab3">Rekap Laporan</button>
+      <button id="tab4">Target</button>
     </nav>
-  </header>
-
-  <!-- DASHBOARD -->
-  <section id="page1" class="active">
+  </header>  <!-- DASHBOARD -->  <section id="page1" class="active">
     <div class="card">
       <h2>📈 Statistik Laporan</h2>
       <canvas id="reportChart" height="120"></canvas>
@@ -136,22 +47,15 @@
       <p><b>Total laporan:</b> <span id="totalReports">0</span></p>
       <p><b>Kategori terbanyak:</b> <span id="topCategory">-</span></p>
     </div>
-  </section>
-
-  <!-- UPLOAD TEMPLATE -->
-  <section id="page2">
+  </section>  <!-- UPLOAD TEMPLATE -->  <section id="page2">
     <div class="card">
       <h2>📁 Upload Template Report</h2>
-      <p>Unggah file laporan (CSV/Excel) ke Supabase Storage (<code>template</code>).</p>
       <input type="file" id="templateFile" accept=".csv,.xlsx,.xls">
       <br>
       <button class="upload-btn" onclick="uploadTemplate()">Upload File</button>
       <p id="uploadStatus"></p>
     </div>
-  </section>
-
-  <!-- REKAP LAPORAN -->
-  <section id="page3">
+  </section>  <!-- REKAP LAPORAN -->  <section id="page3">
     <div class="card">
       <h2>🗂️ Rekap Laporan Telegram</h2>
       <div class="filter">
@@ -164,7 +68,9 @@
             <option value="Kabel">Kabel</option>
             <option value="Lainnya">Lainnya</option>
           </select>
-        </label>
+
+Adi Rezky, [03/11/2025 10:33]
+</label>
         <button class="upload-btn" onclick="downloadCSV()">⬇️ Download CSV</button>
       </div>
       <div style="overflow-x:auto;">
@@ -186,17 +92,39 @@
         </table>
       </div>
     </div>
-  </section>
-
-  <footer>© 2025 Sistem Pelaporan | Supabase + Telegram Bot</footer>
-
-  <script>
+  </section>  <!-- TARGET -->  <section id="page4">
+    <div class="card">
+      <h2>🎯 Input Target Kategori</h2>
+      <div>
+        <label>Kategori:
+          <select id="targetCategory">
+            <option value="Jalan">Jalan</option>
+            <option value="Jembatan">Jembatan</option>
+            <option value="Tiang">Tiang</option>
+            <option value="Kabel">Kabel</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+        </label>
+        <br>
+        <label>Target Volume:
+          <input type="number" id="targetValue" placeholder="Masukkan target" min="0">
+        </label>
+        <br>
+        <button class="upload-btn" onclick="saveTarget()">Simpan Target</button>
+      </div>
+      <div class="card" style="margin-top:20px;">
+        <h3>📊 Target & Progress</h3>
+        <ul id="targetList"></ul>
+      </div>
+    </div>
+  </section>  <footer>© 2025 Sistem Pelaporan | Supabase + Telegram Bot</footer>  <script>
+    // ===== Supabase Client =====
     const supabase = supabase.createClient(
       "https://zpcuzrifbisrcjtqgqyv.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg"
+      "PUBLIC_ANON_KEY_HERE"
     );
 
-    // === NAVIGATION ===
+    // ===== NAVIGATION =====
     const tabs = document.querySelectorAll("nav button");
     const pages = document.querySelectorAll("section");
     tabs.forEach((tab, i) => {
@@ -205,48 +133,56 @@
         pages.forEach(p => p.classList.remove("active"));
         tab.classList.add("active");
         pages[i].classList.add("active");
+        if(tab.id === 'tab4') loadTargets();
       });
     });
 
-    // === UPLOAD TEMPLATE ===
+    // ===== UPLOAD TEMPLATE =====
     async function uploadTemplate() {
       const file = document.getElementById("templateFile").files[0];
       const status = document.getElementById("uploadStatus");
       if (!file) return status.textContent = "❌ Pilih file terlebih dahulu.";
-      const { error } = await supabase.storage.from("template").upload(`template/${Date.now()}-${file.name}`, file);
+      const { error } = await supabase.storage.from("template").upload(template/${Date.now()}-${file.name}, file);
       status.textContent = error ? "❌ Upload gagal: " + error.message : "✅ Upload berhasil!";
     }
 
-    // === LOAD REPORTS ===
+    // ===== LOAD REPORTS =====
     async function loadReports(filter = "") {
-      let query = supabase.from("reports").select("*").order("created_at", { ascending: false });
-      if (filter) query = query.eq("category", filter);
-      const { data } = await query;
-      renderTable(data);
-      updateDashboard(data);
+      try {
+        let query = supabase.from("reports").select("*").order("created_at", { ascending: false });
+        if (filter) query = query.eq("category", filter);
+        const { data, error } = await query;
+        if (error) return console.error("❌ Supabase select error:", error);
+        renderTable(data);
+        updateDashboard(data);
+      } catch(e) { console.error("❌ LoadReports error:", e); }
     }
 
     function renderTable(data) {
       const tbody = document.querySelector("#reportTable tbody");
       tbody.innerHTML = "";
       data.forEach(r => {
+        const lat = r.latitude != null ? r.latitude.toFixed(5) : '-';
+        const lon = r.longitude != null ? r.longitude.toFixed(5) : '-';
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${new Date(r.created_at).toLocaleString()}</td>
+          <td>${r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
           <td>${r.category || '-'}</td>
           <td>${r.nama_pekerjaan || '-'}</td>
           <td>${r.volume_pekerjaan || '-'}</td>
-          <td>${r.material || '-'}</td>
+
+Adi Rezky, [03/11/2025 10:33]
+<td>${r.material || '-'}</td>
           <td>${r.keterangan || '-'}</td>
-          <td>${r.latitude?.toFixed(5)}, ${r.longitude?.toFixed(5)}</td>
-          <td>${r.photo_before_url ? `<img src="${r.photo_before_url}">` : '-'}</td>
-          <td>${r.photo_after_url ? `<img src="${r.photo_after_url}">` : '-'}</td>
-        `;
+          <td>${lat}, ${lon}</td>
+          <td>${r.photo_before_url ? <img src="${r.photo_before_url}"> : '-'}</td>
+          <td>${r.photo_after_url ? <img src="${r.photo_after_url}"> : '-'}</td>
+        ;
         tbody.appendChild(tr);
       });
     }
 
-    // === UPDATE DASHBOARD ===
+    // ===== DASHBOARD =====
     function updateDashboard(data) {
       const total = data.length;
       document.getElementById("totalReports").textContent = total;
@@ -264,32 +200,50 @@
       if (chart) chart.destroy();
       chart = new Chart(ctx, {
         type: "bar",
-        data: {
-          labels,
-          datasets: [{ label: "Jumlah Laporan", data: values, backgroundColor: "#2563eb" }]
-        },
+        data: { labels, datasets: [{ label: "Jumlah Laporan", data: values, backgroundColor: "#2563eb" }] },
         options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
       });
     }
 
-    // === FILTER & CSV ===
+    // ===== FILTER & CSV =====
     document.getElementById("filterCategory").addEventListener("change", e => loadReports(e.target.value));
     async function downloadCSV() {
-      const { data } = await supabase.from("reports").select("*");
+      const { data, error } = await supabase.from("reports").select("*");
+      if (error) return alert("❌ Error fetch data: " + error.message);
       if (!data.length) return alert("Tidak ada data untuk diunduh.");
       const header = Object.keys(data[0]);
-      const rows = data.map(o => header.map(h => `"${o[h] || ""}"`).join(","));
+      const rows = data.map(o => header.map(h => "${o[h] || ""}").join(","));
       const csv = [header.join(","), ...rows].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `report-${new Date().toISOString()}.csv`;
+      a.download = report-${new Date().toISOString()}.csv;
       a.click();
     }
 
-    // === INITIAL LOAD ===
+    // ===== TARGET =====
+    async function saveTarget() {
+      const category = document.getElementById("targetCategory").value;
+      const value = parseInt(document.getElementById("targetValue").value);
+      if(!category || isNaN(value)) return alert("Masukkan kategori dan target yang valid.");
+      const { error } = await supabase.from("targets").upsert([{ category, target_volume: value }], { onConflict: ['category'] });
+      if(error) return alert("❌ Gagal simpan target: " + error.message);
+      document.getElementById("targetValue").value = "";
+      loadTargets();
+    }
+
+    async function loadTargets() {
+      const { data, error } = await supabase.from("targets").select("*");
+      if(error) return console.error("❌ Error load targets:", error);
+      const list = document.getElementById("targetList");
+      list.innerHTML = "";
+      data.forEach(t => {
+        list.innerHTML += <li><b>${t.category}</b>: Target ${t.target_volume}</li>`;
+      });
+    }
+
+    // ===== INITIAL LOAD =====
     loadReports();
-  </script>
-</body>
+  </script></body>
 </html>
