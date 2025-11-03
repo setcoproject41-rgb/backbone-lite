@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="id">
+<!DOCTYPE html>
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -49,7 +50,7 @@
       text-align: center;
       padding: 10px;
     }
-    .summary div h3 { margin: 5px 0; font-size: 24px; }
+    .summary div h3 { margin: 5px 0; font-size: 22px; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -64,8 +65,8 @@
     th { background: #fafafa; }
     img {
       border-radius: 5px;
-      width: 80px;
-      height: 80px;
+      width: 70px;
+      height: 70px;
       object-fit: cover;
     }
     footer {
@@ -107,130 +108,147 @@
       <a onclick="showTab('settarget')">Set Target</a>
       <a onclick="showTab('detail')">Detail Progress</a>
     </nav>
-  </header>  <main>
+  </header>
+
+  <main>
     <!-- DASHBOARD -->
     <section id="dashboardTab" class="card">
       <h2>📈 Ringkasan Kemajuan</h2>
       <div class="summary">
-        <div><p>Total Progress</p><h3 id="totalProgress">0 m</h3></div>
-        <div><p>% Capaian</p><h3 id="percentProgress">0%</h3></div>
-        <div><p>Hari ke-</p><h3 id="dayProgress">0 / 60</h3></div>
+        <div><p>Penarikan</p><h3 id="progressPenarikan">0%</h3></div>
+        <div><p>Galian</p><h3 id="progressGalian">0%</h3></div>
+        <div><p>Tanam Tiang</p><h3 id="progressTiang">0%</h3></div>
+        <div><p>Total Progres</p><h3 id="totalProgress">0%</h3></div>
       </div>
-    </section><section class="card">
-  <h2>📊 Grafik Batang per Kategori</h2>
-  <canvas id="categoryChart" height="120"></canvas>
-</section>
+    </section>
 
-<!-- DETAIL -->
-<section id="detailTab" class="card" style="display:none;">
-  <h2>📋 Detail Progress</h2>
-  <table id="reportTable">
-  <thead>
-    <tr>
-      <th>Waktu</th>
-      <th>Kategori</th>
-      <th>Pekerjaan</th>
-      <th>Volume</th>
-      <th>Material</th>
-      <th>Keterangan</th>
-      <th>Before</th>
-      <th>After</th>
-      <th>Lokasi</th>
-      <th>Petugas</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-</section>
+    <section class="card">
+      <h2>📉 Grafik Kurva Kemajuan</h2>
+      <canvas id="progressCurve" height="120"></canvas>
+    </section>
 
-<!-- SET TARGET -->
-<section id="settargetTab" class="card" style="display:none;">
-  <h2>🎯 Set Target</h2>
-  <form id="targetForm">
-    <label>Kategori:</label>
-    <select id="category">
-      <option value="">-- Pilih Kategori --</option>
-      <option value="Jalan">Jalan</option>
-      <option value="Tiang">Tiang</option>
-      <option value="Jembatan">Jembatan</option>
-      <option value="Kabel">Kabel</option>
-      <option value="Galian">Galian</option>
-      <option value="Lain-Lain">Lain-Lain</option>
-    </select>
+    <section class="card">
+      <h2>📊 Grafik Batang per Kategori</h2>
+      <canvas id="categoryChart" height="120"></canvas>
+    </section>
 
-    <label>Target Volume (m):</label>
-    <input type="number" id="targetVolume" placeholder="contoh: 5000" />
+    <!-- DETAIL -->
+    <section id="detailTab" class="card" style="display:none;">
+      <h2>📋 Detail Progress</h2>
+      <table id="reportTable">
+        <thead>
+          <tr>
+            <th>Waktu</th>
+            <th>Kategori</th>
+            <th>Pekerjaan</th>
+            <th>Volume</th>
+            <th>Material</th>
+            <th>Keterangan</th>
+            <th>Before</th>
+            <th>After</th>
+            <th>Lokasi</th>
+            <th>Petugas</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
 
-    <button type="submit">Simpan Target</button>
-  </form>
-  <div id="targetMessage" class="msg"></div>
-</section>
+    <!-- SET TARGET -->
+    <section id="settargetTab" class="card" style="display:none;">
+      <h2>🎯 Set Target</h2>
+      <form id="targetForm">
+        <label>Kategori:</label>
+        <select id="category">
+          <option value="">-- Pilih Kategori --</option>
+          <option value="Penarikan">Penarikan</option>
+          <option value="Galian">Galian</option>
+          <option value="Tanam Tiang">Tanam Tiang</option>
+          <option value="Lain-Lain">Lain-Lain</option>
+        </select>
 
-  </main>  <footer>© 2025 Dashboard Project - Backbone Lite</footer>  <script>
-    // === Inisialisasi Supabase ===
+        <label>Target Volume (m):</label>
+        <input type="number" id="targetVolume" placeholder="contoh: 5000" />
+
+        <button type="submit">Simpan Target</button>
+      </form>
+      <div id="targetMessage" class="msg"></div>
+    </section>
+  </main>
+
+  <footer>© 2025 Dashboard Project - Backbone Lite</footer>
+
+  <script>
+    // === Konfigurasi Supabase ===
     const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // === Load Data ===
     async function loadDashboard() {
       const { data: reports, error: errReports } = await sb.from("reports").select("*");
       const { data: targets, error: errTargets } = await sb.from("targets").select("*");
+      if (errReports) return console.error("Error reports:", errReports);
 
-      if (errReports) {
-        console.error("Error reports:", errReports);
-        return;
-      }
-      renderDashboard(reports, targets || []);
+      renderSummary(reports, targets || []);
+      renderCurve(reports);
+      renderBarChart(reports);
       renderTable(reports);
-      renderChart(reports);
     }
 
-    // === Ringkasan ===
-    function renderDashboard(reports, targets) {
-      const totalVolume = reports.reduce((sum, r) => sum + (parseFloat(r.volume_pekerjaan) || 0), 0);
-      const totalTarget = targets.reduce((sum, t) => sum + (parseFloat(t.target_volume) || 0), 0);
-      const percent = totalTarget ? ((totalVolume / totalTarget) * 100).toFixed(1) : 0;
+    // === RINGKASAN PROGRES ===
+    function renderSummary(reports, targets) {
+      const cat = ["Penarikan", "Galian", "Tanam Tiang"];
+      const progressData = {};
 
-      document.getElementById("totalProgress").innerText = totalVolume.toLocaleString() + " m";
-      document.getElementById("percentProgress").innerText = percent + "%";
-      document.getElementById("dayProgress").innerText = "2 / 60";
+      cat.forEach(c => {
+        const vol = reports.filter(r => r.category === c)
+          .reduce((s, r) => s + (parseFloat(r.volume_pekerjaan) || 0), 0);
+        const target = (targets.find(t => t.category === c)?.target_volume) || 0;
+        progressData[c] = target ? (vol / target * 100).toFixed(1) : 0;
+      });
+
+      const totalTarget = targets.reduce((s, t) => s + (parseFloat(t.target_volume) || 0), 0);
+      const totalVol = reports.reduce((s, r) => s + (parseFloat(r.volume_pekerjaan) || 0), 0);
+      const totalPercent = totalTarget ? ((totalVol / totalTarget) * 100).toFixed(1) : 0;
+
+      document.getElementById("progressPenarikan").textContent = progressData["Penarikan"] + "%";
+      document.getElementById("progressGalian").textContent = progressData["Galian"] + "%";
+      document.getElementById("progressTiang").textContent = progressData["Tanam Tiang"] + "%";
+      document.getElementById("totalProgress").textContent = totalPercent + "%";
     }
 
-    // === Tabel ===
-    function renderTable(reports) {
-  const tbody = document.querySelector("#reportTable tbody");
-  tbody.innerHTML = "";
+    // === GRAFIK KURVA ===
+    let curveChart;
+    function renderCurve(reports) {
+      const ctx = document.getElementById("progressCurve").getContext("2d");
+      if (curveChart) curveChart.destroy();
 
-  reports.forEach(r => {
-    const waktu = r.created_at
-      ? new Date(r.created_at).toLocaleString("id-ID")
-      : "-";
-    const lokasi = (r.latitude && r.longitude)
-      ? `<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">📍 Lihat</a>`
-      : "-";
+      const sorted = reports.sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+      const dates = sorted.map(r => new Date(r.created_at).toLocaleDateString("id-ID"));
+      let total = 0;
+      const progress = sorted.map(r => total += (parseFloat(r.volume_pekerjaan) || 0));
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${waktu}</td>
-      <td>${r.category || "-"}</td>
-      <td>${r.nama_pekerjaan || "-"}</td>
-      <td>${r.volume_pekerjaan || 0}</td>
-      <td>${r.material || "-"}</td>
-      <td>${r.keterangan || "-"}</td>
-      <td><img src="${r.photo_before_url || ''}" /></td>
-      <td><img src="${r.photo_after_url || ''}" /></td>
-      <td>${lokasi}</td>
-      <td>${r.telegram_name || '-'}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-    // === Grafik ===
-    let chartInstance;
-    function renderChart(reports) {
+      curveChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: dates,
+          datasets: [{
+            label: "Kemajuan Volume (m)",
+            data: progress,
+            borderColor: "#4b3efc",
+            fill: false,
+            tension: 0.2
+          }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    // === GRAFIK BATANG ===
+    let barChart;
+    function renderBarChart(reports) {
       const ctx = document.getElementById("categoryChart").getContext("2d");
-      if (chartInstance) chartInstance.destroy();
+      if (barChart) barChart.destroy();
 
       const grouped = reports.reduce((acc, r) => {
         const key = r.category || "Lain-Lain";
@@ -238,12 +256,12 @@
         return acc;
       }, {});
 
-      chartInstance = new Chart(ctx, {
+      barChart = new Chart(ctx, {
         type: "bar",
         data: {
           labels: Object.keys(grouped),
           datasets: [{
-            label: "Volume Pekerjaan (m)",
+            label: "Volume (m)",
             data: Object.values(grouped),
             backgroundColor: "#4b3efc"
           }]
@@ -252,16 +270,32 @@
       });
     }
 
-    // === Navigasi Tab ===
-    function showTab(tab) {
-      document.getElementById("dashboardTab").style.display = tab === "dashboard" ? "block" : "none";
-      document.getElementById("detailTab").style.display = tab === "detail" ? "block" : "none";
-      document.getElementById("settargetTab").style.display = tab === "settarget" ? "block" : "none";
-      document.querySelectorAll("nav a").forEach(a => a.classList.remove("active"));
-      document.querySelector(`nav a[onclick="showTab('${tab}')"]`).classList.add("active");
+    // === TABEL DETAIL ===
+    function renderTable(reports) {
+      const tbody = document.querySelector("#reportTable tbody");
+      tbody.innerHTML = "";
+      reports.forEach(r => {
+        const waktu = r.created_at ? new Date(r.created_at).toLocaleString("id-ID") : "-";
+        const lokasi = (r.latitude && r.longitude)
+          ? `<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">📍 Lihat</a>` : "-";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${waktu}</td>
+          <td>${r.category || "-"}</td>
+          <td>${r.nama_pekerjaan || "-"}</td>
+          <td>${r.volume_pekerjaan || 0}</td>
+          <td>${r.material || "-"}</td>
+          <td>${r.keterangan || "-"}</td>
+          <td><img src="${r.photo_before_url || ''}" /></td>
+          <td><img src="${r.photo_after_url || ''}" /></td>
+          <td>${lokasi}</td>
+          <td>${r.telegram_name || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
-    // === Form Simpan Target ===
+    // === FORM TARGET ===
     document.getElementById("targetForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const category = document.getElementById("category").value;
@@ -291,7 +325,16 @@
       }
     });
 
-    // === Jalankan ===
+    // === NAVIGASI TAB ===
+    function showTab(tab) {
+      document.getElementById("dashboardTab").style.display = tab === "dashboard" ? "block" : "none";
+      document.getElementById("detailTab").style.display = tab === "detail" ? "block" : "none";
+      document.getElementById("settargetTab").style.display = tab === "settarget" ? "block" : "none";
+      document.querySelectorAll("nav a").forEach(a => a.classList.remove("active"));
+      document.querySelector(`nav a[onclick="showTab('${tab}')"]`).classList.add("active");
+    }
+
     loadDashboard();
-  </script></body>
+  </script>
+</body>
 </html>
