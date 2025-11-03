@@ -179,7 +179,7 @@
   <footer>© 2025 Dashboard Project - Backbone Lite</footer>
 
   <script>
-    // === Konfigurasi Supabase ===
+    // === Supabase Config ===
     const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -195,25 +195,25 @@
       renderTable(reports);
     }
 
-    // === RINGKASAN PROGRES ===
+    // === RINGKASAN ===
     function renderSummary(reports, targets) {
-      const cat = ["Penarikan", "Galian", "Tanam Tiang"];
-      const progressData = {};
+      const categories = ["Penarikan", "Galian", "Tanam Tiang"];
+      let totalVol = 0, totalTarget = 0;
 
-      cat.forEach(c => {
-        const vol = reports.filter(r => r.category === c)
-          .reduce((s, r) => s + (parseFloat(r.volume_pekerjaan) || 0), 0);
-        const target = (targets.find(t => t.category === c)?.target_volume) || 0;
-        progressData[c] = target ? (vol / target * 100).toFixed(1) : 0;
+      categories.forEach(cat => {
+        const vol = reports.filter(r => (r.category || "").toLowerCase() === cat.toLowerCase())
+          .reduce((sum, r) => sum + (parseFloat(r.volume_pekerjaan) || 0), 0);
+        const targetObj = targets.find(t => (t.category || "").toLowerCase() === cat.toLowerCase());
+        const targetVol = targetObj ? parseFloat(targetObj.target_volume) : 0;
+
+        const percent = targetVol ? ((vol / targetVol) * 100).toFixed(1) : 0;
+        document.getElementById(`progress${cat.replace(" ", "")}`).textContent = percent + "%";
+
+        totalVol += vol;
+        totalTarget += targetVol;
       });
 
-      const totalTarget = targets.reduce((s, t) => s + (parseFloat(t.target_volume) || 0), 0);
-      const totalVol = reports.reduce((s, r) => s + (parseFloat(r.volume_pekerjaan) || 0), 0);
       const totalPercent = totalTarget ? ((totalVol / totalTarget) * 100).toFixed(1) : 0;
-
-      document.getElementById("progressPenarikan").textContent = progressData["Penarikan"] + "%";
-      document.getElementById("progressGalian").textContent = progressData["Galian"] + "%";
-      document.getElementById("progressTiang").textContent = progressData["Tanam Tiang"] + "%";
       document.getElementById("totalProgress").textContent = totalPercent + "%";
     }
 
@@ -325,7 +325,7 @@
       }
     });
 
-    // === NAVIGASI TAB ===
+    // === NAVIGASI ===
     function showTab(tab) {
       document.getElementById("dashboardTab").style.display = tab === "dashboard" ? "block" : "none";
       document.getElementById("detailTab").style.display = tab === "detail" ? "block" : "none";
