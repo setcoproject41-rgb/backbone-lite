@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dashboard Kemajuan Project - Versi Terintegrasi</title>
 
+  <!-- Supabase + Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Leaflet (CDN) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     :root{
@@ -47,6 +52,15 @@
     .row{display:flex;gap:12px;align-items:center}
     .col{display:flex;flex-direction:column;gap:8px}
     .muted{color:var(--muted);font-size:13px}
+
+    /* Map styles */
+    #mapCard { padding: 12px; }
+    #map { height: 520px; border-radius: 8px; width: 100%; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+    .span-list { max-height:420px; overflow:auto; padding-top:8px; display:flex; flex-direction:column; gap:8px; }
+    .span-item { display:flex; justify-content:space-between; align-items:center; padding:8px; border-radius:6px; background:#fbfbff; border:1px solid #eef2ff; }
+    .span-item .name { font-weight:700 }
+    .span-item .meta { font-size:13px; color:var(--muted) }
   </style>
 </head>
 <body>
@@ -54,13 +68,14 @@
     <h1>📊 Dashboard Kemajuan Project (Integrated)</h1>
     <nav>
       <a class="active" onclick="showTab('dashboard')">Dashboard</a>
+      <a onclick="showTab('map')">Map</a>
       <a onclick="showTab('settarget')">Set Target</a>
       <a onclick="showTab('detail')">Detail Progress</a>
     </nav>
   </header>
 
   <main>
-    <!-- MAIN SUMMARY CARD -->
+    <!-- DASHBOARD -->
     <section id="dashboardTab" class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
@@ -77,10 +92,8 @@
         <div class="metric"><div class="label">Kategori Terdeteksi</div><div id="categoryCount" class="value">-</div></div>
       </div>
 
-      <!-- Categories + progressbars -->
       <div id="categoriesContainer" class="cat-list" style="margin-top:16px"></div>
 
-      <!-- Chart + Payment & Material summary -->
       <div style="display:flex;gap:12px;margin-top:14px;align-items:flex-start;flex-wrap:wrap">
         <div style="flex:1" class="chart-wrap">
           <canvas id="barChart" height="120"></canvas>
@@ -91,6 +104,38 @@
           <hr/>
           <h3 style="margin:0 0 8px 0">Materials Summary</h3>
           <div id="materialsSummary" class="muted">Memuat...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAP -->
+    <section id="mapTab" class="card" style="display:none">
+      <div id="mapCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div class="controls">
+            <input id="kmlUrl" type="text" placeholder="Masukkan URL publik KML (opsional)" style="min-width:360px" />
+            <input id="kmlFile" type="file" accept=".kml" />
+            <button id="loadKmlBtn">Load SPAN JT dari KML</button>
+            <button id="refreshMapBtn" style="background:#10b981">Refresh Reports</button>
+          </div>
+          <div class="muted">Supabase: <span id="supabaseNote">memuat...</span></div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:12px;align-items:flex-start">
+          <div style="flex:2">
+            <div id="map"></div>
+          </div>
+          <div style="flex:1;min-width:320px">
+            <h3 style="margin:0 0 8px 0">Span JT (detected)</h3>
+            <div id="spanList" class="span-list muted">Belum ada span, load KML terlebih dahulu.</div>
+            <hr style="margin:12px 0"/>
+            <h4 style="margin:6px 0">Legend</h4>
+            <div class="muted"><div><span style="display:inline-block;width:12px;height:12px;background:#2563eb;margin-right:8px;border-radius:2px"></span> Span (backbone)</div>
+            <div style="margin-top:6px"><span style="display:inline-block;width:12px;height:12px;background:#ef4444;margin-right:8px;border-radius:50%"></span> Galian</div>
+            <div style="margin-top:6px"><span style="display:inline-block;width:12px;height:12px;background:#16a34a;margin-right:8px;border-radius:50%"></span> Tiang</div>
+            <div style="margin-top:6px"><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;margin-right:8px;border-radius:50%"></span> Jembatan</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -123,198 +168,432 @@
 
   <footer style="text-align:center;padding:18px 0;color:var(--muted)">© 2025 Dashboard Project - Backbone Lite</footer>
 
-  <script>
-    // CONFIG
-    const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<script>
+  // -------------------------
+  // CONFIG: Supabase project
+  // -------------------------
+  const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // RATE default (dipakai sementara untuk estimasi pembayaran)
-    const RATE = {
-      kabel: 2500,    // per meter
-      galian: 10000,  // per titik
-      tiang: 20000,   // per pcs
-      jalan: 1500,    // per meter
-      jembatan: 500000 // per unit
-    };
+  // simple unit map & helpers
+  const unitMap = { 'kabel':'m','jalan':'m','galian':'titik','tiang':'pcs','jembatan':'unit','lain-lain':'unit' };
+  function satuan(cat){ return unitMap[(cat||'').toLowerCase()] || 'unit'; }
+  function fmt(n){ return n===null || n===undefined ? '-' : Number(n).toLocaleString('id-ID'); }
+  function progressColor(p){ if (p>=80) return '#16a34a'; if (p>=40) return '#f59e0b'; return '#ef4444'; }
 
-    let barChartInstance = null;
+  // state
+  let reportsCache = [], targetsCache = [], materialsCache = [], paymentsCache = [];
+  let barChartInstance = null;
 
-    // unit map (same as before)
-    const unitMap = { 'kabel':'m','jalan':'m','galian':'titik','tiang':'pcs','jembatan':'unit','lain-lain':'unit' };
+  // initial dashboard loader
+  async function loadAll(){
+    try{
+      const [{data:reports, error:rErr}, {data:targets, error:tErr}, {data:materials, error:mErr}, {data:payments, error:pErr}] = await Promise.all([
+        supabase.from('reports').select('*').order('created_at',{ascending:true}),
+        supabase.from('targets').select('*'),
+        supabase.from('materials').select('*'),
+        supabase.from('payments').select('*').order('created_at',{ascending:false})
+      ]);
+      if (rErr) { console.error('reports err', rErr); return; }
+      reportsCache = reports || [];
+      targetsCache = targets || [];
+      materialsCache = materials || [];
+      paymentsCache = payments || [];
 
-    function progressColor(p){ if (p>=80) return '#16a34a'; if (p>=40) return '#f59e0b'; return '#ef4444'; }
-    function fmt(n){ return n===null || n===undefined ? '-' : Number(n).toLocaleString('id-ID'); }
-    function satuan(cat){ return unitMap[(cat||'').toLowerCase()] || 'unit'; }
+      document.getElementById('lastUpdatedNote').textContent = 'Terakhir sync: ' + new Date().toLocaleString('id-ID');
 
-    function showTab(tab){
-      document.getElementById('dashboardTab').style.display = tab==='dashboard' ? 'block' : 'none';
-      document.getElementById('detailTab').style.display = tab==='detail' ? 'block' : 'none';
-      document.getElementById('settargetTab').style.display = tab==='settarget' ? 'block' : 'none';
-      document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
-      document.querySelector(`nav a[onclick="showTab('${tab}')"]`)?.classList.add('active');
-    }
+      // categories
+      const catMap = {}; const order=[];
+      (reports||[]).forEach(r=>{
+        const cat=(r.category||'Lain-Lain').trim();
+        if (!catMap[cat]) { catMap[cat] = {volume:0, rows:[]}; order.push(cat); }
+        const v = parseFloat(r.volume_pekerjaan)||0;
+        catMap[cat].volume += v;
+        catMap[cat].rows.push(r);
+      });
 
-    // MAIN loader (this is step 1: improved dashboard)
-    async function loadAll(){
-      try{
-        const [{data:reports, error:rErr}, {data:targets, error:tErr}, {data:materials, error:mErr}, {data:payments, error:pErr}] = await Promise.all([
-          supabase.from('reports').select('*').order('created_at',{ascending:true}),
-          supabase.from('targets').select('*'),
-          supabase.from('materials').select('*'),
-          supabase.from('payments').select('*').order('created_at',{ascending:false})
-        ]);
-        if (rErr) { console.error('reports err', rErr); return; }
-        if (tErr) console.warn('targets err', tErr);
-        if (mErr) console.warn('materials err', mErr);
-        if (pErr) console.warn('payments err', pErr);
+      // totals & metrics
+      const totalVol = Object.values(catMap).reduce((s,c)=>s + c.volume, 0);
+      const totalTgt = (targets||[]).reduce((s,t)=> s + (parseFloat(t.target_volume)||0), 0);
 
-        document.getElementById('lastUpdatedNote').textContent = 'Terakhir sync: ' + new Date().toLocaleString('id-ID');
+      document.getElementById('totalTarget').textContent = totalTgt ? fmt(totalTgt) : '-';
+      document.getElementById('totalProgress').textContent = fmt(totalVol);
+      document.getElementById('totalPercent').textContent = totalTgt ? ((totalVol/totalTgt)*100).toFixed(1) + '%' : '-';
+      document.getElementById('categoryCount').textContent = order.length;
 
-        // categories from reports
-        const catMap = {}; const order=[];
-        (reports||[]).forEach(r=>{
-          const cat=(r.category||'Lain-Lain').trim();
-          if (!catMap[cat]) { catMap[cat] = {volume:0, rows:[]}; order.push(cat); }
-          const v = parseFloat(r.volume_pekerjaan)||0;
-          catMap[cat].volume += v;
-          catMap[cat].rows.push(r);
-        });
-
-        // totals & metrics
-        const totalVol = Object.values(catMap).reduce((s,c)=>s + c.volume, 0);
-        const totalTgt = (targets||[]).reduce((s,t)=> s + (parseFloat(t.target_volume)||0), 0);
-
-        document.getElementById('totalTarget').textContent = totalTgt ? fmt(totalTgt) : '-';
-        document.getElementById('totalProgress').textContent = fmt(totalVol);
-        document.getElementById('totalPercent').textContent = totalTgt ? ((totalVol/totalTgt)*100).toFixed(1) + '%' : '-';
-        document.getElementById('categoryCount').textContent = order.length;
-
-        // render categories list
-        const cont = document.getElementById('categoriesContainer'); cont.innerHTML = '';
-        order.forEach(cat => {
-          const vol = catMap[cat].volume;
-          const targetObj = (targets||[]).find(t => (t.category||'').toLowerCase() === cat.toLowerCase());
-          const tgt = targetObj ? (parseFloat(targetObj.target_volume)||0) : 0;
-          const pct = tgt ? ((vol/tgt)*100) : null;
-          const unit = satuan(cat);
-          const div = document.createElement('div'); div.className = 'cat-item';
-          div.innerHTML = `
-            <div class="cat-left">
-              <div style="min-width:160px">
-                <div class="cat-name">${cat}</div>
-                <div class="cat-meta">${fmt(vol)} ${unit}</div>
-              </div>
+      // render categories list
+      const cont = document.getElementById('categoriesContainer'); cont.innerHTML = '';
+      order.forEach(cat => {
+        const vol = catMap[cat].volume;
+        const targetObj = (targets||[]).find(t => (t.category||'').toLowerCase() === cat.toLowerCase());
+        const tgt = targetObj ? (parseFloat(targetObj.target_volume)||0) : 0;
+        const pct = tgt ? ((vol/tgt)*100) : null;
+        const unit = satuan(cat);
+        const div = document.createElement('div'); div.className = 'cat-item';
+        div.innerHTML = `
+          <div class="cat-left">
+            <div style="min-width:160px">
+              <div class="cat-name">${cat}</div>
+              <div class="cat-meta">${fmt(vol)} ${unit}</div>
             </div>
-            <div style="text-align:right">
-              <div style="font-weight:600">${pct ? pct.toFixed(1)+' %' : 'Target belum diisi' }</div>
-              <div class="progress-track" style="margin-top:6px">
-                <div class="progress-fill" style="width:${ pct ? Math.min(pct,100) + '%' : '100%' }; background:${ pct ? progressColor(pct) : '#c7cdd8' }"></div>
-              </div>
-            </div>`;
-          cont.appendChild(div);
-        });
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:600">${pct ? pct.toFixed(1)+' %' : 'Target belum diisi' }</div>
+            <div class="progress-track" style="margin-top:6px">
+              <div class="progress-fill" style="width:${ pct ? Math.min(pct,100) + '%' : '100%' }; background:${ pct ? progressColor(pct) : '#c7cdd8' }"></div>
+            </div>
+          </div>`;
+        cont.appendChild(div);
+      });
 
-        // bar chart
-        const labels = order.length ? order : ['No data'];
-        const data = order.length ? order.map(c => catMap[c].volume) : [0];
-        renderBarChart(labels, data);
+      // bar chart
+      const labels = order.length ? order : ['No data'];
+      const data = order.length ? order.map(c => catMap[c].volume) : [0];
+      renderBarChart(labels, data);
 
-        // render detail table
-        renderTable(reports);
+      // detail table
+      renderTable(reports);
 
-        // payments summary (simple): group by status & sum nilai_bayar
-        if (payments && payments.length){
-          const totalPending = payments.filter(p=>p.status==='waiting').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
-          const totalApproved = payments.filter(p=>p.status==='approved').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
-          const totalPaid = payments.filter(p=>p.status==='paid').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
-          document.getElementById('paymentsSummary').innerHTML = `
-            <div class="muted">Pending: ${fmt(totalPending)}</div>
-            <div class="muted">Approved: ${fmt(totalApproved)}</div>
-            <div class="muted">Paid: ${fmt(totalPaid)}</div>
-          `;
-        } else {
-          document.getElementById('paymentsSummary').textContent = 'Tidak ada data payments';
-        }
+      // payments summary
+      if (paymentsCache && paymentsCache.length){
+        const totalPending = paymentsCache.filter(p=>p.status==='waiting').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
+        const totalApproved = paymentsCache.filter(p=>p.status==='approved').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
+        const totalPaid = paymentsCache.filter(p=>p.status==='paid').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
+        document.getElementById('paymentsSummary').innerHTML = `
+          <div class="muted">Pending: ${fmt(totalPending)}</div>
+          <div class="muted">Approved: ${fmt(totalApproved)}</div>
+          <div class="muted">Paid: ${fmt(totalPaid)}</div>
+        `;
+      } else {
+        document.getElementById('paymentsSummary').textContent = 'Tidak ada data payments';
+      }
 
-        // materials summary (simple)
-        if (materials && materials.length){
-          const lines = materials.slice(0,6).map(m => `${m.nama_material}: ${fmt(m.qty)} ${m.satuan||''}`);
-          document.getElementById('materialsSummary').innerHTML = lines.map(l=>`<div class="muted">${l}</div>`).join('');
-        } else {
-          document.getElementById('materialsSummary').textContent = 'Tidak ada data materials';
-        }
+      // materials summary
+      if (materialsCache && materialsCache.length){
+        const lines = materialsCache.slice(0,6).map(m => `${m.nama_material}: ${fmt(m.qty)} ${m.satuan||''}`);
+        document.getElementById('materialsSummary').innerHTML = lines.map(l=>`<div class="muted">${l}</div>`).join('');
+      } else {
+        document.getElementById('materialsSummary').textContent = 'Tidak ada data materials';
+      }
 
-        // populate target category select
-        populateCategorySelect(order);
+      populateCategorySelect(Object.keys(catMap));
+      // if map already loaded spans, refresh markers
+      if (window.map && window.spanGeoJSON && window.spanGeoJSON.length) {
+        renderReportsOnMap(); // update markers with latest reportsCache
+      }
 
-      } catch(err){
-        console.error('loadAll err', err);
+    } catch(err){
+      console.error('loadAll err', err);
+    }
+  }
+
+  function renderBarChart(labels,data){
+    const ctx = document.getElementById('barChart').getContext('2d');
+    if (barChartInstance) barChartInstance.destroy();
+    barChartInstance = new Chart(ctx, {
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Volume', data, backgroundColor: labels.map(()=> 'rgba(37,99,235,0.85)'), borderRadius:6 }]},
+      options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+    });
+  }
+
+  function renderTable(reports){
+    const tbody = document.querySelector('#reportTable tbody'); tbody.innerHTML = '';
+    (reports||[]).forEach(r=>{
+      const tr = document.createElement('tr');
+      const waktu = r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '-';
+      const lokasi = (r.latitude && r.longitude) ? `<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">📍</a>` : '-';
+      tr.innerHTML = `
+        <td>${waktu}</td>
+        <td>${r.category||'-'}</td>
+        <td>${r.nama_pekerjaan||'-'}</td>
+        <td>${fmt(r.volume_pekerjaan)}</td>
+        <td>${r.material||'-'}</td>
+        <td>${r.keterangan||'-'}</td>
+        <td>${r.photo_before_url?`<a href="${r.photo_before_url}" target="_blank"><img class="thumb" src="${r.photo_before_url}"></a>`:'-'}</td>
+        <td>${r.photo_after_url?`<a href="${r.photo_after_url}" target="_blank"><img class="thumb" src="${r.photo_after_url}"></a>`:'-'}</td>
+        <td>${lokasi}</td>
+        <td>${r.telegram_name||'-'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function populateCategorySelect(existing){
+    const sel = document.getElementById('categorySelect');
+    const placeholder = sel.querySelector('option[value=""]');
+    sel.innerHTML = ''; sel.appendChild(placeholder);
+    const commons = ['Jalan','Tiang','Jembatan','Kabel','Galian','Lain-Lain'];
+    const merged = Array.from(new Set([...(existing||[]), ...commons]));
+    merged.forEach(c => { const opt=document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt); });
+  }
+
+  // target form
+  document.getElementById('targetForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const category = document.getElementById('categorySelect').value;
+    const val = parseFloat(document.getElementById('targetInput').value);
+    const msg = document.getElementById('targetMsg');
+    msg.textContent='';
+
+    if (!category){ msg.style.color='crimson'; msg.textContent='Pilih kategori'; return; }
+    if (!val || val <= 0){ msg.style.color='crimson'; msg.textContent='Masukkan target valid'; return; }
+
+    const { error } = await supabase.from('targets').upsert([{ category, target_volume: val }], { onConflict: ['category'] });
+    if (error){ msg.style.color='crimson'; msg.textContent='Gagal menyimpan'; console.error(error); }
+    else { msg.style.color='green'; msg.textContent='✅ Target tersimpan'; setTimeout(()=>{ loadAll(); showTab('dashboard'); },800); }
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', ()=>loadAll());
+
+  // === MAP: load KML SPAN JT (only LineString features under Folder name "SPAN JT")
+  // helper haversine
+  function toRad(v){return v*Math.PI/180;}
+  function haversine(lat1, lon1, lat2, lon2){
+    const R=6371000;
+    const dLat=toRad(lat2-lat1); const dLon=toRad(lon2-lon1);
+    const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+    const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return R*c;
+  }
+
+  // map state
+  window.map = null;
+  window.spanLayers = {};
+  window.spanGeoJSON = [];
+  let markerLayerGroup = null;
+
+  function initMap(){
+    if(window.map) return;
+    window.map = L.map('map', {zoomControl:true}).setView([-7.36,110.18], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(window.map);
+  }
+
+  // parse KML text, extract Folder named "SPAN JT" then every Placemark -> LineString
+  function parseKmlSpanFeatures(kmlText){
+    const parser = new DOMParser();
+    const kmlDom = parser.parseFromString(kmlText,'application/xml');
+    const folders = kmlDom.getElementsByTagName('Folder');
+    let spanFolder = null;
+    for(let i=0;i<folders.length;i++){
+      const nmTag = folders[i].getElementsByTagName('name')[0];
+      if(nmTag && nmTag.textContent && nmTag.textContent.trim().toUpperCase() === 'SPAN JT'){
+        spanFolder = folders[i];
+        break;
       }
     }
+    if(!spanFolder) return [];
 
-    function renderBarChart(labels,data){
-      const ctx = document.getElementById('barChart').getContext('2d');
-      if (barChartInstance) barChartInstance.destroy();
-      barChartInstance = new Chart(ctx, {
-        type:'bar',
-        data:{ labels, datasets:[{ label:'Volume', data, backgroundColor: labels.map(()=> 'rgba(37,99,235,0.85)'), borderRadius:6 }]},
-        options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
-      });
+    const placemarks = spanFolder.getElementsByTagName('Placemark');
+    const features = [];
+    for(let i=0;i<placemarks.length;i++){
+      const pm = placemarks[i];
+      const nameTag = pm.getElementsByTagName('name')[0];
+      const name = nameTag ? nameTag.textContent.trim() : ('placemark-'+i);
+      const ls = pm.getElementsByTagName('LineString')[0];
+      if(!ls) continue;
+      const coordsTag = ls.getElementsByTagName('coordinates')[0];
+      if(!coordsTag) continue;
+      const coordsText = coordsTag.textContent.trim();
+      const coords = coordsText.split(/\s+/).map(s=>{
+        const parts = s.trim().split(',');
+        if(parts.length < 2) return null;
+        const lng = parseFloat(parts[0]); const lat = parseFloat(parts[1]);
+        if(!isFinite(lat) || !isFinite(lng)) return null;
+        return [lat, lng];
+      }).filter(Boolean);
+      if(coords.length) features.push({ name, coords });
     }
+    return features;
+  }
 
-    function renderTable(reports){
-      const tbody = document.querySelector('#reportTable tbody'); tbody.innerHTML = '';
-      (reports||[]).forEach(r=>{
-        const tr = document.createElement('tr');
-        const waktu = r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '-';
-        const lokasi = (r.latitude && r.longitude) ? `<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">📍</a>` : '-';
-        tr.innerHTML = `
-          <td>${waktu}</td>
-          <td>${r.category||'-'}</td>
-          <td>${r.nama_pekerjaan||'-'}</td>
-          <td>${fmt(r.volume_pekerjaan)}</td>
-          <td>${r.material||'-'}</td>
-          <td>${r.keterangan||'-'}</td>
-          <td>${r.photo_before_url?`<a href="${r.photo_before_url}" target="_blank"><img class="thumb" src="${r.photo_before_url}"></a>`:'-'}</td>
-          <td>${r.photo_after_url?`<a href="${r.photo_after_url}" target="_blank"><img class="thumb" src="${r.photo_after_url}"></a>`:'-'}</td>
-          <td>${lokasi}</td>
-          <td>${r.telegram_name||'-'}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+  async function loadKmlFromUrlOrFile(url, file){
+    let kmlText;
+    if(url){
+      const resp = await fetch(url);
+      if(!resp.ok) throw new Error('Tidak bisa load KML dari URL');
+      kmlText = await resp.text();
+    } else if(file){
+      kmlText = await file.text();
+    } else {
+      // fallback: try fetch local file at /MAGELANG-TEMANGGUNG.kml
+      const resp = await fetch('/MAGELANG-TEMANGGUNG.kml');
+      if(!resp.ok) throw new Error('Tidak ada KML di public (MAGELANG-TEMANGGUNG.kml)');
+      kmlText = await resp.text();
     }
+    return parseKmlSpanFeatures(kmlText);
+  }
 
-    function populateCategorySelect(existing){
-      const sel = document.getElementById('categorySelect');
-      const placeholder = sel.querySelector('option[value=""]');
-      sel.innerHTML = ''; sel.appendChild(placeholder);
-      const commons = ['Jalan','Tiang','Jembatan','Kabel','Galian','Lain-Lain'];
-      const merged = Array.from(new Set([...(existing||[]), ...commons]));
-      merged.forEach(c => { const opt=document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt); });
+  function renderSpansOnMap(features){
+    // clear existing
+    Object.values(window.spanLayers).forEach(l=>window.map.removeLayer(l));
+    window.spanLayers = {};
+    window.spanGeoJSON = [];
+
+    const allLayers = [];
+    features.forEach(f=>{
+      const poly = L.polyline(f.coords, { color:'#2563eb', weight:4, opacity:0.9 }).addTo(window.map);
+      poly.bindPopup(`<b>${f.name}</b>`);
+      window.spanLayers[f.name] = poly;
+      window.spanGeoJSON.push({ properties:{ name: f.name }, geometry:{ coordinates: f.coords.map(c=>[c[1],c[0]]) }});
+      allLayers.push(poly);
+    });
+    if(allLayers.length){
+      const group = L.featureGroup(allLayers);
+      window.map.fitBounds(group.getBounds(), {padding:[20,20]});
     }
+  }
 
-    // target form
-    document.getElementById('targetForm').addEventListener('submit', async e=>{
-      e.preventDefault();
-      const category = document.getElementById('categorySelect').value;
-      const val = parseFloat(document.getElementById('targetInput').value);
-      const msg = document.getElementById('targetMsg');
-      msg.textContent='';
+  function findNearestSpan(lat, lon){
+    let best = { span:null, dist: Infinity };
+    (window.spanGeoJSON||[]).forEach(s=>{
+      const coords = s.geometry.coordinates; // [lng,lat]
+      for(let i=0;i<coords.length;i++){
+        const [lng, ltt] = coords[i];
+        const d = haversine(ltt, lng, lat, lon);
+        if(d < best.dist){ best = { span: s.properties.name, dist: d }; }
+      }
+    });
+    return best;
+  }
 
-      if (!category){ msg.style.color='crimson'; msg.textContent='Pilih kategori'; return; }
-      if (!val || val <= 0){ msg.style.color='crimson'; msg.textContent='Masukkan target valid'; return; }
+  function categoryColor(cat){
+    const key = (cat||'').toLowerCase();
+    if(key.includes('kabel')) return '#2563eb';
+    if(key.includes('galian') || key.includes('gali')) return '#ef4444';
+    if(key.includes('tiang')) return '#16a34a';
+    if(key.includes('jembatan')) return '#f59e0b';
+    return '#6b7280';
+  }
 
-      // upsert target
-      const { error } = await supabase.from('targets').upsert([{ category, target_volume: val }], { onConflict: ['category'] });
-      if (error){ msg.style.color='crimson'; msg.textContent='Gagal menyimpan'; console.error(error); }
-      else { msg.style.color='green'; msg.textContent='✅ Target tersimpan'; setTimeout(()=>{ loadAll(); showTab('dashboard'); },800); }
+  function renderReportsOnMap(){
+    if(!window.map) return;
+    if(markerLayerGroup){ markerLayerGroup.clearLayers(); map.removeLayer(markerLayerGroup); }
+    markerLayerGroup = L.layerGroup().addTo(window.map);
+
+    // prepare aggregation per span
+    const spanAgg = {};
+    (window.spanGeoJSON||[]).forEach(s => spanAgg[s.properties.name] = { count:0, volume:0, target:null, name:s.properties.name });
+
+    (targetsCache||[]).forEach(t => {
+      const cat = (t.category||'').trim();
+      if(spanAgg[cat]) spanAgg[cat].target = Number(t.target_volume || 0);
     });
 
-    document.getElementById('refreshBtn').addEventListener('click', ()=>loadAll());
+    (reportsCache||[]).forEach(r=>{
+      const lat = Number(r.latitude); const lon=Number(r.longitude);
+      if(!isFinite(lat) || !isFinite(lon)) return;
+      const color = categoryColor(r.category);
+      const icon = L.divIcon({className:'custom-marker', html:`<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid #fff"></div>`, iconSize:[16,16]});
+      const m = L.marker([lat, lon], { icon }).addTo(markerLayerGroup);
+      const popupHtml = `
+        <div style="min-width:220px">
+          <b>${r.category||'-'}</b><br/>
+          <small class="muted">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</small><br/>
+          <div style="margin-top:6px">${r.nama_pekerjaan || ''}</div>
+          <div style="margin-top:6px"><b>Volume:</b> ${fmt(r.volume_pekerjaan)} ${r.satuan||''}</div>
+          ${r.photo_before_url ? `<div style="margin-top:8px"><a href="${r.photo_before_url}" target="_blank"><img class="thumb" src="${r.photo_before_url}"></a></div>` : ''}
+          ${r.photo_after_url ? `<div style="margin-top:8px"><a href="${r.photo_after_url}" target="_blank"><img class="thumb" src="${r.photo_after_url}"></a></div>` : ''}
+        </div>
+      `;
+      m.bindPopup(popupHtml);
 
-    // initial
-    loadAll(); showTab('dashboard');
-  </script>
+      // aggregate to nearest span
+      const near = findNearestSpan(lat, lon);
+      if(near.span && spanAgg[near.span]){
+        spanAgg[near.span].count += 1;
+        spanAgg[near.span].volume += Number(r.volume_pekerjaan || 0);
+      }
+    });
+
+    // render span list
+    renderSpanList(spanAgg);
+  }
+
+  function renderSpanList(spanAgg){
+    const list = document.getElementById('spanList'); list.innerHTML = '';
+    const entries = Object.values(spanAgg);
+    entries.sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true}));
+    entries.forEach(e=>{
+      const div = document.createElement('div'); div.className='span-item';
+      const pct = (e.target && e.target>0) ? (e.volume / e.target * 100) : null;
+      const pctText = pct !== null ? pct.toFixed(1) + ' %' : 'Target belum diisi';
+      const color = pct !== null ? progressColor(pct) : '#94a3b8';
+      div.innerHTML = `<div>
+        <div class="name">${e.name}</div>
+        <div class="meta">${e.count} laporan · ${fmt(e.volume)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700">${pctText}</div>
+        <div style="margin-top:6px" class="progress-track"><div class="progress-fill" style="width:${pct?Math.min(pct,100):100}%;background:${color}"></div></div>
+      </div>`;
+      div.addEventListener('click', ()=>{ const layer = window.spanLayers[e.name]; if(layer){ map.fitBounds(layer.getBounds(), {padding:[30,30]}); layer.openPopup(); } });
+      list.appendChild(div);
+
+      // set polyline color
+      if(window.spanLayers[e.name]) window.spanLayers[e.name].setStyle({ color: pct === null ? '#94a3b8' : color, weight:4, opacity:0.95 });
+    });
+
+    // update chart on map tab: reuse existing bar chart with span entries
+    const labels = entries.map(x=>x.name);
+    const data = entries.map(x=>x.volume);
+    if(labels.length) {
+      // reuse existing renderBarChart (this updates main chart). To avoid replacing main chart unexpectedly,
+      // we simply don't auto-update main chart here. If desired, create a dedicated chart for spans.
+    }
+  }
+
+  // UI actions for KML load
+  document.getElementById('loadKmlBtn').addEventListener('click', async ()=>{
+    try{
+      document.getElementById('spanList').textContent = 'Memuat KML...';
+      initMap();
+      const url = document.getElementById('kmlUrl').value.trim();
+      const file = document.getElementById('kmlFile').files && document.getElementById('kmlFile').files[0] ? document.getElementById('kmlFile').files[0] : null;
+      const features = await loadKmlFromUrlOrFile(url || null, file || null);
+      if(!features.length){ document.getElementById('spanList').textContent = 'Tidak ditemukan fitur SPAN JT di KML.'; return; }
+      renderSpansOnMap(features);
+      document.getElementById('supabaseNote').textContent = 'connected';
+      // load reports & render markers
+      await loadReportsOnly();
+      renderReportsOnMap();
+    }catch(err){ console.error(err); alert('Gagal memuat KML: '+(err.message||err)); document.getElementById('spanList').textContent = 'Gagal memuat KML'; }
+  });
+
+  document.getElementById('refreshMapBtn').addEventListener('click', async ()=>{
+    await loadReportsOnly();
+    renderReportsOnMap();
+  });
+
+  // load reports only
+  async function loadReportsOnly(){
+    const { data, error } = await supabase.from('reports').select('*').order('created_at',{ascending:true});
+    if(error){ console.error('load reports', error); return; }
+    reportsCache = data || [];
+  }
+
+  // init map on page load
+  initMap();
+
+  // initial dashboard load
+  loadAll(); showTab('dashboard');
+
+  // wire map tab selection
+  function showTab(tab){
+    document.getElementById('dashboardTab').style.display = tab==='dashboard' ? 'block' : 'none';
+    document.getElementById('mapTab').style.display = tab==='map' ? 'block' : 'none';
+    document.getElementById('detailTab').style.display = tab==='detail' ? 'block' : 'none';
+    document.getElementById('settargetTab').style.display = tab==='settarget' ? 'block' : 'none';
+    document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+    document.querySelector(`nav a[onclick="showTab('${tab}')"]`)?.classList.add('active');
+    // if switching to map and spans loaded, refresh markers
+    if(tab==='map' && window.spanGeoJSON && window.spanGeoJSON.length){ renderReportsOnMap(); }
+  }
+
+  // expose showTab to global (already used above)
+  window.showTab = showTab;
+
+</script>
 </body>
 </html>
