@@ -3,57 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dashboard Kemajuan Project</title>
+  <title>Dashboard Kemajuan Project - Versi Terintegrasi</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     :root{
-      --primary:#2563eb;
-      --muted:#6b7280;
-      --bg:#f3f4f6;
-      --card:#ffffff;
-      --success:#16a34a;
-      --warn:#f59e0b;
-      --danger:#ef4444;
-      --radius:10px;
-      --maxwidth:1000px;
+      --primary:#2563eb; --muted:#6b7280; --bg:#f3f4f6; --card:#ffffff;
+      --success:#16a34a; --warn:#f59e0b; --danger:#ef4444; --radius:10px;
+      --maxwidth:1100px;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
-      background:var(--bg);
-      color:#0f172a;
-      -webkit-font-smoothing:antialiased;
-    }
-    header{
-      background:linear-gradient(90deg,var(--primary),#4b67f6);
-      color:white;
-      padding:14px 20px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      box-shadow:0 2px 8px rgba(15,23,42,0.08);
-    }
-    header h1{margin:0;font-size:18px;font-weight:600}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#0f172a}
+    header{background:linear-gradient(90deg,var(--primary),#4b67f6);color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+    header h1{margin:0;font-size:18px}
     nav a{color:rgba(255,255,255,0.95);margin-left:14px;text-decoration:none;cursor:pointer;font-weight:500}
     nav a.active{text-decoration:underline}
     main{max-width:var(--maxwidth);margin:20px auto;padding:0 16px}
-    .card{background:var(--card);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:0 1px 4px rgba(2,6,23,0.06)}
+    .card{background:var(--card);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:0 1px 6px rgba(10,15,30,0.06)}
     .summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
     .metric{background:linear-gradient(180deg, rgba(37,99,235,0.06), rgba(37,99,235,0.03));border-radius:8px;padding:12px}
-    .metric .label{font-size:13px;color:var(--muted)}
-    .metric .value{font-weight:700;font-size:18px;margin-top:6px}
+    .metric .label{font-size:13px;color:var(--muted)} .metric .value{font-weight:700;font-size:18px;margin-top:6px}
     .cat-list{margin-top:12px;display:flex;flex-direction:column;gap:12px}
-    .cat-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0}
+    .cat-item{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .cat-left{display:flex;align-items:center;gap:12px}
     .cat-name{font-weight:600}
     .cat-meta{font-size:13px;color:var(--muted)}
     .progress-track{height:12px;background:#eef2ff;border-radius:999px;overflow:hidden;width:220px}
     .progress-fill{height:100%;border-radius:999px}
     .small{font-size:13px;color:var(--muted)}
-    .chart-wrap{margin-top:14px;background:linear-gradient(180deg, #ffffff, #fbfdff);padding:12px;border-radius:8px}
+    .chart-wrap{margin-top:14px;background:linear-gradient(180deg,#ffffff,#fbfdff);padding:12px;border-radius:8px}
     table{width:100%;border-collapse:collapse;margin-top:8px}
     th,td{padding:8px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:13px}
     th{background:#fbfbfb;color:var(--muted);font-weight:600}
@@ -62,15 +42,16 @@
     input,select,button{padding:10px;border-radius:8px;border:1px solid #e6edf8;font-size:14px}
     button{background:var(--primary);color:white;border:none;cursor:pointer}
     button:active{transform:translateY(1px)}
-    @media (min-width:900px){
-      .summary-grid{grid-template-columns:repeat(4,1fr)}
-    }
+    @media (min-width:900px){.summary-grid{grid-template-columns:repeat(4,1fr)}}
     .note{font-size:13px;color:var(--muted)}
+    .row{display:flex;gap:12px;align-items:center}
+    .col{display:flex;flex-direction:column;gap:8px}
+    .muted{color:var(--muted);font-size:13px}
   </style>
 </head>
 <body>
   <header>
-    <h1>Dashboard Kemajuan Project</h1>
+    <h1>📊 Dashboard Kemajuan Project (Integrated)</h1>
     <nav>
       <a class="active" onclick="showTab('dashboard')">Dashboard</a>
       <a onclick="showTab('settarget')">Set Target</a>
@@ -79,142 +60,217 @@
   </header>
 
   <main>
+    <!-- MAIN SUMMARY CARD -->
     <section id="dashboardTab" class="card">
-      <div class="row-between">
+      <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <h2 style="margin:0 0 6px 0">Ringkasan & Progres</h2>
-          <div class="note">Persentase dan satuan otomatis dari data laporan.</div>
+          <div class="note">Sinkronisasi ke Supabase. Modul material & payment akan otomatis terbaca bila tabel tersedia.</div>
         </div>
-        <div id="lastUpdatedNote" class="small">--</div>
+        <div id="lastUpdatedNote" class="muted">--</div>
       </div>
 
       <div class="summary-grid" style="margin-top:12px">
         <div class="metric"><div class="label">Total Target</div><div id="totalTarget" class="value">-</div></div>
-        <div class="metric"><div class="label">Total Progress</div><div id="totalProgress" class="value">-</div></div>
+        <div class="metric"><div class="label">Total Progress (m/pcs/titik)</div><div id="totalProgress" class="value">-</div></div>
         <div class="metric"><div class="label">Total Progress (%)</div><div id="totalPercent" class="value">-</div></div>
         <div class="metric"><div class="label">Kategori Terdeteksi</div><div id="categoryCount" class="value">-</div></div>
       </div>
 
-      <div id="categoriesContainer" class="cat-list"></div>
-      <div class="chart-wrap"><canvas id="barChart" height="120"></canvas></div>
+      <!-- Categories + progressbars -->
+      <div id="categoriesContainer" class="cat-list" style="margin-top:16px"></div>
+
+      <!-- Chart + Payment & Material summary -->
+      <div style="display:flex;gap:12px;margin-top:14px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1" class="chart-wrap">
+          <canvas id="barChart" height="120"></canvas>
+        </div>
+        <div style="width:320px" class="card">
+          <h3 style="margin:0 0 8px 0">Payments Summary</h3>
+          <div id="paymentsSummary" class="muted">Memuat...</div>
+          <hr/>
+          <h3 style="margin:0 0 8px 0">Materials Summary</h3>
+          <div id="materialsSummary" class="muted">Memuat...</div>
+        </div>
+      </div>
     </section>
 
+    <!-- DETAIL -->
     <section id="detailTab" class="card" style="display:none">
       <h2>Detail Progress</h2>
-      <div class="note">Data laporan dari tabel <code>reports</code>.</div>
-      <table id="reportTable">
-        <thead>
-          <tr>
-            <th>Waktu</th><th>Kategori</th><th>Pekerjaan</th><th>Volume</th><th>Material</th><th>Keterangan</th><th>Before</th><th>After</th><th>Lokasi</th><th>Petugas</th>
-          </tr>
-        </thead><tbody></tbody>
-      </table>
+      <div class="note">Menampilkan seluruh laporan (reports).</div>
+      <table id="reportTable"><thead>
+        <tr><th>Waktu</th><th>Kategori</th><th>Pekerjaan</th><th>Volume</th><th>Material</th><th>Keterangan</th><th>Before</th><th>After</th><th>Lokasi</th><th>Petugas</th></tr>
+      </thead><tbody></tbody></table>
     </section>
 
+    <!-- TARGET -->
     <section id="settargetTab" class="card" style="display:none">
       <h2>Set Target</h2>
       <form id="targetForm" class="control">
         <label>Kategori</label>
         <select id="categorySelect"><option value="">-- Pilih kategori --</option></select>
-        <label>Target Volume</label>
+        <label>Target Volume (angka)</label>
         <input id="targetInput" type="number" min="0" placeholder="contoh: 5000" />
         <div style="display:flex;gap:8px">
           <button id="saveTargetBtn" type="submit">Simpan Target</button>
           <button id="refreshBtn" type="button" style="background:#f3f4f6;color:#0f172a">Refresh</button>
         </div>
-        <div id="targetMsg" class="note" style="margin-top:8px"></div>
+        <div id="targetMsg" class="note"></div>
       </form>
     </section>
   </main>
 
-  <footer style="text-align:center;padding:18px 0;color:var(--muted)">Â© 2025 Dashboard Project - Backbone Lite</footer>
+  <footer style="text-align:center;padding:18px 0;color:var(--muted)">© 2025 Dashboard Project - Backbone Lite</footer>
 
   <script>
+    // CONFIG
     const SUPABASE_URL = "https://zpcuzrifbisrcjtqgqyv.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwY3V6cmlmYmlzcmNqdHFncXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTYyMTcsImV4cCI6MjA3NzQ5MjIxN30.BQnuSVPu7rfKyPwZpZUwD5e4bUepFrrKHPzZhpq8OCg";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // RATE default (dipakai sementara untuk estimasi pembayaran)
+    const RATE = {
+      kabel: 2500,    // per meter
+      galian: 10000,  // per titik
+      tiang: 20000,   // per pcs
+      jalan: 1500,    // per meter
+      jembatan: 500000 // per unit
+    };
+
     let barChartInstance = null;
 
-    function progressColor(p){if(isNaN(p))return'#c7cdd8';if(p>=80)return'#16a34a';if(p>=40)return'#f59e0b';return'#ef4444';}
-    function fmt(n){return n==null?'-':Number(n).toLocaleString('id-ID');}
-    function satuan(cat){
-      const c=cat.toLowerCase();
-      if(c.includes('kabel'))return'm';
-      if(c.includes('tiang'))return'pcs';
-      if(c.includes('galian'))return'titik';
-      if(c.includes('jalan'))return'm';
-      if(c.includes('jembatan'))return'm';
-      return'unit';
-    }
+    // unit map (same as before)
+    const unitMap = { 'kabel':'m','jalan':'m','galian':'titik','tiang':'pcs','jembatan':'unit','lain-lain':'unit' };
+
+    function progressColor(p){ if (p>=80) return '#16a34a'; if (p>=40) return '#f59e0b'; return '#ef4444'; }
+    function fmt(n){ return n===null || n===undefined ? '-' : Number(n).toLocaleString('id-ID'); }
+    function satuan(cat){ return unitMap[(cat||'').toLowerCase()] || 'unit'; }
 
     function showTab(tab){
-      document.getElementById('dashboardTab').style.display=tab==='dashboard'?'block':'none';
-      document.getElementById('detailTab').style.display=tab==='detail'?'block':'none';
-      document.getElementById('settargetTab').style.display=tab==='settarget'?'block':'none';
+      document.getElementById('dashboardTab').style.display = tab==='dashboard' ? 'block' : 'none';
+      document.getElementById('detailTab').style.display = tab==='detail' ? 'block' : 'none';
+      document.getElementById('settargetTab').style.display = tab==='settarget' ? 'block' : 'none';
       document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
       document.querySelector(`nav a[onclick="showTab('${tab}')"]`)?.classList.add('active');
     }
 
+    // MAIN loader (this is step 1: improved dashboard)
     async function loadAll(){
-      const {data:reports}=await supabase.from('reports').select('*');
-      const {data:targets}=await supabase.from('targets').select('*');
-      document.getElementById('lastUpdatedNote').textContent='Terakhir sync: '+new Date().toLocaleString('id-ID');
+      try{
+        const [{data:reports, error:rErr}, {data:targets, error:tErr}, {data:materials, error:mErr}, {data:payments, error:pErr}] = await Promise.all([
+          supabase.from('reports').select('*').order('created_at',{ascending:true}),
+          supabase.from('targets').select('*'),
+          supabase.from('materials').select('*'),
+          supabase.from('payments').select('*').order('created_at',{ascending:false})
+        ]);
+        if (rErr) { console.error('reports err', rErr); return; }
+        if (tErr) console.warn('targets err', tErr);
+        if (mErr) console.warn('materials err', mErr);
+        if (pErr) console.warn('payments err', pErr);
 
-      const catMap={};const order=[];
-      (reports||[]).forEach(r=>{
-        const cat=(r.category||'Lain-Lain').trim();
-        if(!catMap[cat]){catMap[cat]={volume:0};order.push(cat);}
-        catMap[cat].volume+=(+r.volume_pekerjaan||0);
-      });
+        document.getElementById('lastUpdatedNote').textContent = 'Terakhir sync: ' + new Date().toLocaleString('id-ID');
 
-      const cont=document.getElementById('categoriesContainer');cont.innerHTML='';
-      document.getElementById('categoryCount').textContent=order.length;
+        // categories from reports
+        const catMap = {}; const order=[];
+        (reports||[]).forEach(r=>{
+          const cat=(r.category||'Lain-Lain').trim();
+          if (!catMap[cat]) { catMap[cat] = {volume:0, rows:[]}; order.push(cat); }
+          const v = parseFloat(r.volume_pekerjaan)||0;
+          catMap[cat].volume += v;
+          catMap[cat].rows.push(r);
+        });
 
-      order.forEach(cat=>{
-        const v=catMap[cat].volume;
-        const tObj=(targets||[]).find(t=>(t.category||'').toLowerCase()===cat.toLowerCase());
-        const tgt=tObj?(+tObj.target_volume||0):0;
-        const pct=tgt?((v/tgt)*100):null;
-        const s=satuan(cat);
-        const el=document.createElement('div');
-        el.className='cat-item';
-        el.innerHTML=`
-          <div>
-            <div class="cat-name">${cat}</div>
-            <div class="cat-meta">${fmt(v)} ${s}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-weight:600">${pct?pct.toFixed(1)+'%':'-'}</div>
-            <div class="progress-track" style="margin-top:6px">
-              <div class="progress-fill" style="width:${pct?Math.min(pct,100)+'%':'100%'};background:${pct?progressColor(pct):'#c7cdd8'}"></div>
+        // totals & metrics
+        const totalVol = Object.values(catMap).reduce((s,c)=>s + c.volume, 0);
+        const totalTgt = (targets||[]).reduce((s,t)=> s + (parseFloat(t.target_volume)||0), 0);
+
+        document.getElementById('totalTarget').textContent = totalTgt ? fmt(totalTgt) : '-';
+        document.getElementById('totalProgress').textContent = fmt(totalVol);
+        document.getElementById('totalPercent').textContent = totalTgt ? ((totalVol/totalTgt)*100).toFixed(1) + '%' : '-';
+        document.getElementById('categoryCount').textContent = order.length;
+
+        // render categories list
+        const cont = document.getElementById('categoriesContainer'); cont.innerHTML = '';
+        order.forEach(cat => {
+          const vol = catMap[cat].volume;
+          const targetObj = (targets||[]).find(t => (t.category||'').toLowerCase() === cat.toLowerCase());
+          const tgt = targetObj ? (parseFloat(targetObj.target_volume)||0) : 0;
+          const pct = tgt ? ((vol/tgt)*100) : null;
+          const unit = satuan(cat);
+          const div = document.createElement('div'); div.className = 'cat-item';
+          div.innerHTML = `
+            <div class="cat-left">
+              <div style="min-width:160px">
+                <div class="cat-name">${cat}</div>
+                <div class="cat-meta">${fmt(vol)} ${unit}</div>
+              </div>
             </div>
-          </div>`;
-        cont.appendChild(el);
-      });
+            <div style="text-align:right">
+              <div style="font-weight:600">${pct ? pct.toFixed(1)+' %' : 'Target belum diisi' }</div>
+              <div class="progress-track" style="margin-top:6px">
+                <div class="progress-fill" style="width:${ pct ? Math.min(pct,100) + '%' : '100%' }; background:${ pct ? progressColor(pct) : '#c7cdd8' }"></div>
+              </div>
+            </div>`;
+          cont.appendChild(div);
+        });
 
-      const totalVol=(reports||[]).reduce((s,r)=>s+(+r.volume_pekerjaan||0),0);
-      const totalTgt=(targets||[]).reduce((s,t)=>s+(+t.target_volume||0),0);
-      document.getElementById('totalTarget').textContent=totalTgt?fmt(totalTgt):'-';
-      document.getElementById('totalProgress').textContent=fmt(totalVol);
-      document.getElementById('totalPercent').textContent=totalTgt?((totalVol/totalTgt)*100).toFixed(1)+'%':'-';
+        // bar chart
+        const labels = order.length ? order : ['No data'];
+        const data = order.length ? order.map(c => catMap[c].volume) : [0];
+        renderBarChart(labels, data);
 
-      renderBarChart(order,order.map(c=>catMap[c].volume));
-      renderTable(reports);
-      populateCategorySelect(order);
+        // render detail table
+        renderTable(reports);
+
+        // payments summary (simple): group by status & sum nilai_bayar
+        if (payments && payments.length){
+          const totalPending = payments.filter(p=>p.status==='waiting').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
+          const totalApproved = payments.filter(p=>p.status==='approved').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
+          const totalPaid = payments.filter(p=>p.status==='paid').reduce((s,p)=>s + (parseFloat(p.nilai_bayar)||0),0);
+          document.getElementById('paymentsSummary').innerHTML = `
+            <div class="muted">Pending: ${fmt(totalPending)}</div>
+            <div class="muted">Approved: ${fmt(totalApproved)}</div>
+            <div class="muted">Paid: ${fmt(totalPaid)}</div>
+          `;
+        } else {
+          document.getElementById('paymentsSummary').textContent = 'Tidak ada data payments';
+        }
+
+        // materials summary (simple)
+        if (materials && materials.length){
+          const lines = materials.slice(0,6).map(m => `${m.nama_material}: ${fmt(m.qty)} ${m.satuan||''}`);
+          document.getElementById('materialsSummary').innerHTML = lines.map(l=>`<div class="muted">${l}</div>`).join('');
+        } else {
+          document.getElementById('materialsSummary').textContent = 'Tidak ada data materials';
+        }
+
+        // populate target category select
+        populateCategorySelect(order);
+
+      } catch(err){
+        console.error('loadAll err', err);
+      }
     }
 
     function renderBarChart(labels,data){
-      const ctx=document.getElementById('barChart').getContext('2d');
-      if(barChartInstance)barChartInstance.destroy();
-      barChartInstance=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Volume',data,backgroundColor:labels.map(()=> 'rgba(37,99,235,0.85)'),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+      const ctx = document.getElementById('barChart').getContext('2d');
+      if (barChartInstance) barChartInstance.destroy();
+      barChartInstance = new Chart(ctx, {
+        type:'bar',
+        data:{ labels, datasets:[{ label:'Volume', data, backgroundColor: labels.map(()=> 'rgba(37,99,235,0.85)'), borderRadius:6 }]},
+        options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+      });
     }
 
     function renderTable(reports){
-      const tb=document.querySelector('#reportTable tbody');tb.innerHTML='';
+      const tbody = document.querySelector('#reportTable tbody'); tbody.innerHTML = '';
       (reports||[]).forEach(r=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML=`
-          <td>${new Date(r.created_at).toLocaleString('id-ID')}</td>
+        const tr = document.createElement('tr');
+        const waktu = r.created_at ? new Date(r.created_at).toLocaleString('id-ID') : '-';
+        const lokasi = (r.latitude && r.longitude) ? `<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">📍</a>` : '-';
+        tr.innerHTML = `
+          <td>${waktu}</td>
           <td>${r.category||'-'}</td>
           <td>${r.nama_pekerjaan||'-'}</td>
           <td>${fmt(r.volume_pekerjaan)}</td>
@@ -222,35 +278,43 @@
           <td>${r.keterangan||'-'}</td>
           <td>${r.photo_before_url?`<a href="${r.photo_before_url}" target="_blank"><img class="thumb" src="${r.photo_before_url}"></a>`:'-'}</td>
           <td>${r.photo_after_url?`<a href="${r.photo_after_url}" target="_blank"><img class="thumb" src="${r.photo_after_url}"></a>`:'-'}</td>
-          <td>${r.latitude&&r.longitude?`<a href="https://www.google.com/maps?q=${r.latitude},${r.longitude}" target="_blank">ðŸ“Lihat</a>`:'-'}</td>
-          <td>${r.telegram_name||'-'}</td>`;
-        tb.appendChild(tr);
+          <td>${lokasi}</td>
+          <td>${r.telegram_name||'-'}</td>
+        `;
+        tbody.appendChild(tr);
       });
     }
 
-    function populateCategorySelect(cats){
-      const sel=document.getElementById('categorySelect');
-      const ph=sel.querySelector('option[value=""]');
-      sel.innerHTML='';sel.appendChild(ph);
-      const common=['Jalan','Tiang','Jembatan','Kabel','Galian','Lain-Lain'];
-      [...new Set([...cats,...common])].forEach(c=>{
-        const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);
-      });
+    function populateCategorySelect(existing){
+      const sel = document.getElementById('categorySelect');
+      const placeholder = sel.querySelector('option[value=""]');
+      sel.innerHTML = ''; sel.appendChild(placeholder);
+      const commons = ['Jalan','Tiang','Jembatan','Kabel','Galian','Lain-Lain'];
+      const merged = Array.from(new Set([...(existing||[]), ...commons]));
+      merged.forEach(c => { const opt=document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt); });
     }
 
-    document.getElementById('targetForm').addEventListener('submit',async e=>{
+    // target form
+    document.getElementById('targetForm').addEventListener('submit', async e=>{
       e.preventDefault();
-      const cat=document.getElementById('categorySelect').value.trim();
-      const val=parseFloat(document.getElementById('targetInput').value);
-      const msg=document.getElementById('targetMsg');
-      if(!cat){msg.style.color='crimson';msg.textContent='Pilih kategori.';return;}
-      if(!val||isNaN(val)||val<=0){msg.style.color='crimson';msg.textContent='Masukkan target valid.';return;}
-      const {error}=await supabase.from('targets').upsert([{category:cat,target_volume:val}],{onConflict:['category']});
-      if(error){msg.style.color='crimson';msg.textContent='Gagal menyimpan target.';}else{msg.style.color='green';msg.textContent='âœ… Target tersimpan.';setTimeout(()=>{loadAll();showTab('dashboard');},700);}
+      const category = document.getElementById('categorySelect').value;
+      const val = parseFloat(document.getElementById('targetInput').value);
+      const msg = document.getElementById('targetMsg');
+      msg.textContent='';
+
+      if (!category){ msg.style.color='crimson'; msg.textContent='Pilih kategori'; return; }
+      if (!val || val <= 0){ msg.style.color='crimson'; msg.textContent='Masukkan target valid'; return; }
+
+      // upsert target
+      const { error } = await supabase.from('targets').upsert([{ category, target_volume: val }], { onConflict: ['category'] });
+      if (error){ msg.style.color='crimson'; msg.textContent='Gagal menyimpan'; console.error(error); }
+      else { msg.style.color='green'; msg.textContent='✅ Target tersimpan'; setTimeout(()=>{ loadAll(); showTab('dashboard'); },800); }
     });
 
-    document.getElementById('refreshBtn').addEventListener('click',()=>loadAll());
-    loadAll();showTab('dashboard');
+    document.getElementById('refreshBtn').addEventListener('click', ()=>loadAll());
+
+    // initial
+    loadAll(); showTab('dashboard');
   </script>
 </body>
 </html>
