@@ -3,9 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "echo 'no build step'",
+    "start": "node api/webhook.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.3",
