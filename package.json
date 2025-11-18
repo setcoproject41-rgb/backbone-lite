@@ -1,6 +1,7 @@
 {
-  "name": "backbone-lite",
-  "version": "1.0.0",
-  "main": "api/webhook.js",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.61.0",
+    "@supabase/supabase-js": "^2.44.0"
+  }
 }
