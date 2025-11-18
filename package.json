@@ -1,14 +1,14 @@
 {
-  "name": "project-dashboard",
+  "name": "backbone-lite",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start"
+    "start": "node api/webhook.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.0.0",
-    "axios": "^1.4.0",
-    "node-fetch": "^3.3.2"
+    "@supabase/supabase-js": "^2.38.3",
+    "node-telegram-bot-api": "^0.61.0",
+    "node-fetch": "^3.3.2",
+    "form-data": "^4.0.0"
   }
 }
