@@ -6,52 +6,45 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(200).send('ok');
 
     const body = req.body;
-
-    // Telegram update structure: check for message
     const message = body.message || body.edited_message || body.channel_post;
+
     if (!message) return res.status(200).send('no message');
 
-    const chatId = message.chat?.id;
-    const from = message.from;
-
-    // create minimal report row first (you can expand fields)
-    // ideally you parse a previously saved "state" for designator/span/jobcode per user.
-    const designator = 'DGT-001'; // placeholder, replace with logic to map user->designator
+    const designator = 'DGT-001'; 
     const span = 1;
-    const job_code = 'JT-?';
-    const volume = null;
+    const job_code = 'JT-XX';
 
-    // create report
     const { data: reportData, error: reportErr } = await supabaseServer
       .from('reports')
-      .insert([{
-        user_id: null,
-        designator,
-        job_code,
-        span,
-        volume,
-        latitude: message.location?.latitude || null,
-        longitude: message.location?.longitude || null,
-        notes: message.caption || message.text || null
-      }])
+      .insert([
+        {
+          designator,
+          job_code,
+          span,
+          latitude: message.location?.latitude ?? null,
+          longitude: message.location?.longitude ?? null,
+          notes: message.caption || message.text || null
+        }
+      ])
       .select()
       .limit(1);
 
     if (reportErr) {
       console.error('insert report error', reportErr);
+      return res.status(200).send('report insert failed');
     }
 
     const reportId = reportData?.[0]?.id ?? null;
 
-    // Handle photo
+    // PHOTO
     if (message.photo) {
-      const photo = message.photo[message.photo.length - 1];
+      const photo = message.photo.at(-1);
       const { buffer, ext } = await downloadFileFromTelegram(photo.file_id);
-      const uploaded = await uploadToSupabase({ buffer, ext: 'jpg', designator, span, report_id: reportId });
+      const uploaded = await uploadToSupabase({ buffer, ext, designator, span, report_id: reportId });
       return res.status(200).json({ ok: true, url: uploaded.publicUrl });
     }
 
-    // Handle video
+    // VIDEO
     if (message.video) {
       const video = message.video;
       const { buffer, ext } = await downloadFileFromTelegram(video.file_id);
@@ -59,7 +52,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, url: uploaded.publicUrl });
     }
 
-    // Handle document (file)
+    // DOCUMENT
     if (message.document) {
       const doc = message.document;
       const { buffer, ext } = await downloadFileFromTelegram(doc.file_id);
@@ -67,9 +60,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, url: uploaded.publicUrl });
     }
 
-    // Location-only or text-only – report created already
     return res.status(200).json({ ok: true, report_id: reportId });
-
   } catch (err) {
     console.error('webhook error', err);
     return res.status(500).json({ error: err.message });
