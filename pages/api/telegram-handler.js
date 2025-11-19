@@ -17,11 +17,11 @@ const telegramApiUrl = `https://api.telegram.org/bot${process.env.BOT_TOKEN}`;
 
 // Daftar Langkah Pelaporan
 const STEPS = [
-    'BEFORE_WORK', // Foto Sebelum
-    'PROGRESS_WORK', // Foto Selama Progres
-    'AFTER_WORK', // Foto Sesudah/Hasil Akhir
-    'FINAL_VIDEO', // Video
-    'DESCRIPTION' // Keterangan (Terakhir)
+    'BEFORE_WORK',   // 1. Foto Sebelum
+    'PROGRESS_WORK', // 2. Foto Selama Progres
+    'AFTER_WORK',    // 3. Foto Sesudah/Hasil Akhir
+    'FINAL_VIDEO',   // 4. Video
+    'DESCRIPTION'    // 5. Keterangan (Terakhir)
 ];
 
 // =================================================================
@@ -35,33 +35,30 @@ const stateMiddleware = async (ctx, next) => {
     
     const userId = ctx.from.id.toString();
     
-    // 1. Ambil State Saat Ini dari DB
     const { data: sessionData } = await supabase
         .from('bot_sessions')
         .select('*')
         .eq('user_id', userId)
         .single();
     
-    // Inisialisasi ctx.session
     ctx.session = sessionData || {
         user_id: userId,
         current_structure_id: null,
         current_report_log_id: null,
         selected_span_num: null,
-        reporting_step: null, // NEW: Langkah pelaporan saat ini
-        photo_count: 0, // NEW: Hitungan foto per langkah (untuk multi-foto)
+        reporting_step: null, // Langkah pelaporan saat ini
+        photo_count: 0, // Hitungan foto per langkah
     };
     
     await next();
     
-    // 2. Simpan State Kembali ke DB setelah handler selesai
     const payload = {
         user_id: userId,
         current_structure_id: ctx.session.current_structure_id || null,
         current_report_log_id: ctx.session.current_report_log_id || null,
         selected_span_num: ctx.session.selected_span_num || null,
-        reporting_step: ctx.session.reporting_step || null, // NEW
-        photo_count: ctx.session.photo_count || 0, // NEW
+        reporting_step: ctx.session.reporting_step || null,
+        photo_count: ctx.session.photo_count || 0,
         updated_at: new Date().toISOString()
     };
 
@@ -103,29 +100,29 @@ const goToNextStep = async (ctx, currentStep) => {
             message = 'LANGKAH 3/5: Kirimkan **Foto Sesudah/Hasil Akhir** pekerjaan.';
             break;
         case 'FINAL_VIDEO':
-            message = 'LANGKAH 4/5: Kirimkan **Video singkat (maks 50 detik)** sebagai bukti pekerjaan.';
+            message = 'LANGKAH 4/5: Kirimkan **Video singkat (maks 60 detik)** sebagai bukti pekerjaan.';
             break;
         default:
             return ctx.reply('Terjadi kesalahan alur.');
     }
     
-    // Tombol 'Lanjut' untuk pindah ke step berikutnya
-    keyboard = [[{ text: `Lanjut ke ${STEPS[nextIndex + 1] || 'Keterangan'}`, callback_data: `next_step_${nextStep}` }]];
+    const keyboardData = getNextStepKeyboard(nextStep);
 
     ctx.reply(message, {
-        reply_markup: { inline_keyboard: keyboard }
+        reply_markup: { inline_keyboard: keyboardData }
     });
 };
 
 /** Membuat tombol untuk Lanjut ke Step Berikutnya */
 const getNextStepKeyboard = (currentStep) => {
     const currentIndex = STEPS.indexOf(currentStep);
-    const nextStep = STEPS[currentIndex + 1];
+    const nextIndex = currentIndex + 1;
+    const nextStepName = nextIndex < STEPS.length ? STEPS[nextIndex].replace('_WORK', '').replace('_', ' ') : 'Keterangan';
     
-    if (nextStep) {
-        return [[{ text: `Selesai Kirim. Lanjut ke langkah berikutnya.`, callback_data: `next_step_${currentStep}` }]];
-    }
-    return null; // Akan langsung ke DESCRIPTION
+    return [[{ 
+        text: `Selesai Kirim. Lanjut ke ${nextStepName}.`, 
+        callback_data: `next_step_${currentStep}` 
+    }]];
 };
 
 
@@ -133,19 +130,101 @@ const getNextStepKeyboard = (currentStep) => {
 // 4. LOGIKA UTAMA BOT
 // =================================================================
 
-// ... (bot.start dan bot.command('lapor') dan callback_query (select_span, select_designator) sama seperti script multi-step sebelumnya) ...
+// --- /start Command: Menampilkan Panduan (FIXED) ---
+bot.start((ctx) => {
+    const guideText = `
+*Selamat datang di Project Manager Bot!*
+Berikut adalah tata cara untuk melaporkan progres pekerjaan:
 
-// --- Menangani Pilihan Designator (LANGKAH 0: Mulai Reporting) ---
+1.  Kirim perintah */lapor*.
+2.  Pilih **Span Number** lalu **Designator**.
+3.  Ikuti 5 langkah pengiriman eviden: *Foto Sebelum, Foto Progres, Foto Sesudah, Video, dan Keterangan.*
+
+Silakan kirim */lapor* untuk memulai!
+    `;
+    return ctx.replyWithMarkdown(guideText);
+});
+
+
+// --- /lapor Command: LANGKAH 1 - Meminta User Memilih Span Number ---
+bot.command('lapor', async (ctx) => {
+    // Reset semua state
+    ctx.session.current_report_log_id = null;
+    ctx.session.current_structure_id = null;
+    ctx.session.selected_span_num = null;
+    ctx.session.reporting_step = null;
+    ctx.session.photo_count = 0;
+
+    // 1. Ambil semua Span yang unik dari Supabase
+    const { data: structures, error } = await supabase
+        .from('project_structure')
+        .select('span_num')
+        .order('span_num', { ascending: true })
+        .limit(500); // Tingkatkan limit menjadi 500
+
+    if (error || !structures.length) {
+        console.error('DB Error:', error);
+        return ctx.reply('⚠️ Error: Data Span Proyek tidak ditemukan.');
+    }
+
+    const uniqueSpans = [...new Set(structures.map(s => s.span_num))].filter(s => s);
+
+    // 2. Buat tombol inline keyboard untuk Span Number
+    const keyboard = uniqueSpans.map(span => ([
+        { 
+            text: span,
+            callback_data: `select_span_${span}` 
+        }
+    ]));
+
+    ctx.reply('LANGKAH 1/5 (Lokasi): Pilih Span Number:', {
+        reply_markup: { inline_keyboard: keyboard }
+    });
+});
+
+
+// --- Menangani Pilihan Span dan Designator dari Inline Keyboard ---
 bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
 
-    if (data.startsWith('select_designator_')) {
+    // --- LANGKAH 1.1: Setelah memilih SPAN, tampilkan DESIGNATOR ---
+    if (data.startsWith('select_span_')) {
+        const selectedSpanNum = data.substring('select_span_'.length);
+        
+        ctx.session.selected_span_num = selectedSpanNum; 
+
+        const { data: structures, error: structError } = await supabase
+            .from('project_structure')
+            .select('id, designator_name')
+            .eq('span_num', selectedSpanNum)
+            .order('designator_name', { ascending: true });
+
+        if (structError || !structures.length) {
+            await ctx.answerCbQuery('Error mengambil Designator.');
+            return ctx.editMessageText('❌ Error: Designator untuk Span ini tidak ditemukan.');
+        }
+
+        const keyboard = structures.map(s => ([
+            { 
+                text: s.designator_name,
+                callback_data: `select_designator_${s.id}` 
+            }
+        ]));
+
+        await ctx.answerCbQuery();
+        await ctx.editMessageText(`LANGKAH 1/5 (Lokasi): Span *${selectedSpanNum}* dipilih. Pilih Designator yang sesuai:`, {
+            reply_markup: { inline_keyboard: keyboard },
+            parse_mode: 'Markdown'
+        });
+        
+    // --- LANGKAH 1.2: Setelah memilih DESIGNATOR, mulai Reporting ---
+    } else if (data.startsWith('select_designator_')) {
         const structureId = data.split('_')[2];
         
         ctx.session.current_structure_id = structureId; 
-        ctx.session.selected_span_num = null;
+        ctx.session.selected_span_num = null; 
         
-        // Mulai ke Step 1
+        // Mulai ke Step 1 (BEFORE_WORK)
         ctx.session.reporting_step = 'BEFORE_WORK'; 
 
         await ctx.answerCbQuery();
@@ -153,6 +232,7 @@ bot.on('callback_query', async (ctx) => {
              reply_markup: { inline_keyboard: getNextStepKeyboard('BEFORE_WORK') }
         });
 
+    // --- Menangani Tombol LANJUT ---
     } else if (data.startsWith('next_step_')) {
         const currentStep = data.substring('next_step_'.length);
         await ctx.answerCbQuery();
@@ -173,26 +253,76 @@ bot.on('photo', async (ctx) => {
         return ctx.reply('⚠️ Harap ikuti alur. Gunakan tombol "Lanjut" atau kirim Keterangan.');
     }
     
+    // --- LOGIKA UPLOAD FOTO DI SINI ---
+    
+    // Ambil metadata foto
     const photoArray = ctx.message.photo;
-    const fileId = photoArray[photoArray.length - 1].file_id;
+    const largestPhoto = photoArray[photoArray.length - 1]; 
+    const fileId = largestPhoto.file_id;
     
-    // --- AMBIL/BUAT REPORT LOG ID ---
-    // (Anda harus mengganti logic ini dengan kode insert ke report_logs yang asli)
-    if (!logId) {
-        // Logika insert awal ke report_logs dan set ctx.session.current_report_log_id = reportLog.id
-        // ...
-        ctx.session.current_report_log_id = Math.floor(Math.random() * 1000); // Placeholder
-    }
+    try {
+        // 1. Ambil/Buat Log Utama jika belum ada (hanya dilakukan sekali)
+        let currentLogId = logId;
+        if (!currentLogId) {
+            const { data: reportLog, error: logError } = await supabase
+                .from('report_logs')
+                .insert({
+                    structure_id: structureId,
+                    reporter_id: ctx.from.id.toString(),
+                    progress_detail: `Laporan baru, langkah pertama: ${step}`
+                })
+                .select('id')
+                .single();
+            
+            if (logError) throw new Error(logError.message);
+            currentLogId = reportLog.id;
+            ctx.session.current_report_log_id = currentLogId; 
+        }
 
-    // --- LOGIKA UPLOAD DAN CATAT EVIDENCE ---
-    // (Logika ini harus dimasukkan di sini, menggunakan fileId dan step sebagai tag)
-    // uploadFileToSupabase(fileId, step, logId);
-    
-    ctx.session.photo_count += 1; // Hitung foto yang masuk
-    
-    ctx.reply(`[${step}] Foto ke-${ctx.session.photo_count} berhasil diunggah. Kirim foto lagi atau tekan "Lanjut".`, {
-         reply_markup: { inline_keyboard: getNextStepKeyboard(step) }
-    });
+        // 2. Dapatkan URL File
+        const fileInfoResponse = await axios.get(`${telegramApiUrl}/getFile?file_id=${fileId}`);
+        const filePath = fileInfoResponse.data.result.file_path;
+        const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`;
+        const fileExtension = filePath.split('.').pop();
+        
+        // 3. Buat Nama File Unik
+        const structure = await supabase.from('project_structure').select('designator_name, span_num').eq('id', structureId).single().then(res => res.data);
+        const uniqueId = Math.random().toString(36).substring(2, 7); 
+        const fileName = `${structure.designator_name}_${structure.span_num}_${step}_${uniqueId}.${fileExtension}`;
+        const storagePath = `eviden_laporan/${structure.designator_name}/${step}/${fileName}`;
+
+        // 4. Unduh dan Upload ke Supabase Storage
+        const imageResponse = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+        const imageBuffer = Buffer.from(imageResponse.data);
+
+        const { error: uploadError } = await supabase.storage
+            .from('evidence-bucket') 
+            .upload(storagePath, imageBuffer, { contentType: `image/${fileExtension}` });
+
+        if (uploadError) throw new Error(uploadError.message);
+
+        // 5. Catat Bukti Foto (report_evidence)
+        const publicUrl = supabase.storage.from('evidence-bucket').getPublicUrl(storagePath).data.publicUrl;
+
+        await supabase
+            .from('report_evidence')
+            .insert({
+                report_log_id: currentLogId,
+                file_name: fileName,
+                storage_path: publicUrl,
+                evidence_type: step // Menyimpan tag langkah
+            });
+
+        ctx.session.photo_count += 1;
+        
+        ctx.reply(`[${step}] Foto ke-${ctx.session.photo_count} berhasil diunggah. Kirim foto lagi atau tekan "Lanjut".`, {
+             reply_markup: { inline_keyboard: getNextStepKeyboard(step) }
+        });
+
+    } catch (e) {
+        console.error('Upload/DB Error:', e);
+        ctx.reply('❌ Terjadi kesalahan saat memproses foto. Mohon coba lagi.');
+    }
 });
 
 
@@ -202,25 +332,23 @@ bot.on('video', async (ctx) => {
     const step = ctx.session.reporting_step;
     const structureId = ctx.session.current_structure_id;
 
-    if (!structureId || step !== 'FINAL_VIDEO') {
+    if (!structureId || logId === null || step !== 'FINAL_VIDEO') {
         return ctx.reply('⚠️ Harap kirim video hanya di langkah "Video Evidence".');
     }
     
-    // Cek apakah video terlalu besar
     if (ctx.message.video.duration > 60) {
         return ctx.reply('❌ Video maksimal 60 detik.');
     }
     
-    const fileId = ctx.message.video.file_id;
-
-    // --- LOGIKA UPLOAD VIDEO DAN CATAT EVIDENCE ---
-    // uploadFileToSupabase(fileId, step, logId);
+    // --- LOGIKA UPLOAD VIDEO SAMA DENGAN FOTO ---
+    // (Anda bisa menggunakan logika upload foto di atas, cukup ganti jenis filenya)
     
-    await goToNextStep(ctx, 'FINAL_VIDEO');
-
-    ctx.reply('✅ Video berhasil diunggah! Lanjut ke langkah terakhir.', {
-         reply_markup: { inline_keyboard: getNextStepKeyboard('FINAL_VIDEO') }
-    });
+    const fileId = ctx.message.video.file_id;
+    
+    // Placeholder success (Anda harus masukkan logika upload yang asli di sini)
+    // uploadVideoToSupabase(fileId, logId);
+    
+    await goToNextStep(ctx, 'FINAL_VIDEO'); // Lanjut ke DESCRIPTION
 });
 
 
@@ -229,7 +357,6 @@ bot.on('text', async (ctx) => {
     const logId = ctx.session.current_report_log_id;
     const step = ctx.session.reporting_step;
 
-    // HANYA terima TEXT jika step-nya adalah DESCRIPTION
     if (!logId || step !== 'DESCRIPTION') {
         return ctx.reply('Mohon gunakan /lapor untuk memulai proses laporan.');
     }
@@ -277,6 +404,9 @@ bot.on('text', async (ctx) => {
 // =================================================================
 // 5. EXPORT HANDLER UNTUK VERCEL API ROUTE
 // =================================================================
+
+// bot.on('message') Dihapus untuk mencegah /start gagal
+// Handler pesan umum diabaikan karena semua pesan penting sudah ditangani.
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
