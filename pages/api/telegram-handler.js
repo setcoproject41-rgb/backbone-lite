@@ -74,7 +74,6 @@ bot.command('lapor', async (ctx) => {
         // TAPI: Jika Anda hanya ingin *Span* yang unik, atau mengelompokkan
         // Anda mungkin perlu logika filter yang lebih canggih di luar query ini.
         .order('designator_name', { ascending: true })
-        .limit(50); 
 
     if (error || !structures.length) {
         console.error('DB Error:', error);
