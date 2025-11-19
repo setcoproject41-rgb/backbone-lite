@@ -86,7 +86,7 @@ bot.command('lapor', async (ctx) => {
     
     structures.forEach(s => {
         // Gunakan kombinasi sebagai kunci unik
-        const key = `${s.designator_name}|${s.span_num}`; 
+        const key = `{s.span_num}`; 
         
         // Simpan hanya entri pertama untuk setiap kombinasi unik (untuk memastikan id yang benar terambil)
         if (!uniqueStructuresMap.has(key)) {
