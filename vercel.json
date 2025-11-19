@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "src": "pages/api/telegram-handler.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/telegram-handler",
+      "destination": "/api/telegram-handler"
+    }
+  ]
+}
