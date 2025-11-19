@@ -63,7 +63,6 @@ bot.use(stateMiddleware); // Terapkan middleware kustom
 bot.start((ctx) => ctx.reply('Selamat datang di Project Manager Bot! Silakan gunakan /lapor untuk memulai.'));
 
 
-// --- /lapor Command: Meminta User Memilih Lokasi ---
 bot.command('lapor', async (ctx) => {
     // Kosongkan state log ID lama jika ada laporan baru dimulai
     ctx.session.current_report_log_id = null; 
@@ -72,6 +71,8 @@ bot.command('lapor', async (ctx) => {
     const { data: structures, error } = await supabase
         .from('project_structure')
         .select('id, designator_name, span_num')
+        // TAPI: Jika Anda hanya ingin *Span* yang unik, atau mengelompokkan
+        // Anda mungkin perlu logika filter yang lebih canggih di luar query ini.
         .order('designator_name', { ascending: true })
         .limit(50); 
 
@@ -79,11 +80,29 @@ bot.command('lapor', async (ctx) => {
         console.error('DB Error:', error);
         return ctx.reply('⚠️ Error: Data struktur proyek tidak ditemukan.');
     }
+    
+    // --- PENAMBAHAN LOGIKA FILTER UNIK DI SINI ---
+    // Gunakan Map untuk memastikan setiap kombinasi DESIGNATOR dan SPAN muncul sekali
+    const uniqueStructuresMap = new Map();
+    
+    structures.forEach(s => {
+        // Gunakan kombinasi sebagai kunci unik
+        const key = `${s.designator_name}|${s.span_num}`; 
+        
+        // Simpan hanya entri pertama untuk setiap kombinasi unik (untuk memastikan id yang benar terambil)
+        if (!uniqueStructuresMap.has(key)) {
+             uniqueStructuresMap.set(key, s);
+        }
+    });
 
-    // 2. Buat tombol inline keyboard
-    const keyboard = structures.map(s => ([
+    const uniqueStructures = Array.from(uniqueStructuresMap.values());
+    // ----------------------------------------------------
+
+    // 2. Buat tombol inline keyboard dengan tampilan yang lebih ringkas
+    const keyboard = uniqueStructures.map(s => ([
         { 
-            text: `${s.designator_name} | ${s.span_num}`,
+            // TAMPILAN BARU: Hanya menampilkan Span Number
+            text: `${s.designator_name} | ${s.span_num}`, // Tetap tampilkan keduanya agar user tahu konteks
             callback_data: `select_span_${s.id}` 
         }
     ]));
