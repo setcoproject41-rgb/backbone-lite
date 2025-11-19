@@ -1,5 +1,8 @@
 // pages/_app.js
-import '@/styles/globals.css'; // Ganti jika Anda tidak menggunakan globals.css
+
+// Ganti semua import CSS yang mungkin ada di sini
+// dan gunakan path mutlak yang dimulai dari root.
+import '/styles/globals.css'; 
 
 export default function App({ Component, pageProps }) {
   return <Component {...pageProps} />;
